@@ -533,19 +533,27 @@ class MyQRCode(APIView):
     def get(self, request):
         try:
             user = request.user
-            # Generate QR code with kt_id
-            QRcode1 = qrcode.QRCode(
-                error_correction=qrcode.constants.ERROR_CORRECT_H
-            )
-            data = f"KT ID: {user.kt_id}"
-            QRcode1.add_data(data)
-            QRcode1.make()
-            QRcolor = 'Black'
-            QRimg1 = QRcode1.make_image(fill_color=QRcolor, back_color="white").convert('RGB')
 
-            # Add logo to the QR code
-            Logo_link = f"{settings.MEDIA_ROOT}/cvm_qrcodes/logo.png"
-            logo = Image.open(Logo_link)
+            # Attempt to fetch kt_id from the correct profile
+            try:
+                if user.account_type == "Customer":
+                    kt_id = user.customerprofile.kt_id
+                elif user.account_type == "Dealer":
+                    kt_id = user.dealerprofile.kt_id
+                else:
+                    return Response({"error": "User type is unknown."}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                return Response({"error": f"Profile not found or incomplete: {e}"}, status=status.HTTP_404_NOT_FOUND)
+
+            # Generate QR code with kt_id
+            QRcode1 = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H)
+            QRcode1.add_data(f"KT ID: {kt_id}")
+            QRcode1.make()
+            QRimg1 = QRcode1.make_image(fill_color='black', back_color='white').convert('RGB')
+
+            # Add logo to QR
+            logo_path = f"{settings.MEDIA_ROOT}/cvm_qrcodes/logo.png"
+            logo = Image.open(logo_path)
             basewidth = 100
             wpercent = (basewidth / float(logo.size[0]))
             hsize = int((float(logo.size[1]) * float(wpercent)))
@@ -553,20 +561,16 @@ class MyQRCode(APIView):
             pos = ((QRimg1.size[0] - logo.size[0]) // 2, (QRimg1.size[1] - logo.size[1]) // 2)
             QRimg1.paste(logo, pos)
 
-            # Save to memory
+            # Encode to base64
             buffer = io.BytesIO()
             QRimg1.save(buffer, format="JPEG")
-            qr_code_data = buffer.getvalue()
+            qr_code_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
             buffer.close()
 
-            # Encode QR code as base64
-            qr_code_base64 = base64.b64encode(qr_code_data).decode('utf-8')
-
-            # Return data as JSON
-            response_data = {
-                "kt_id": user.kt_id,
+            return Response({
+                "kt_id": kt_id,
                 "qr_code": qr_code_base64
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+            }, status=status.HTTP_200_OK)
+
         except Exception as e:
-            return Response({"error": f"Something went wrong: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"Something went wrong: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

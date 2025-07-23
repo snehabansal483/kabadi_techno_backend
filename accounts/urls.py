@@ -14,6 +14,8 @@ urlpatterns = [
     path('reset-password/<str:uidb64>/<str:token>/', PasswordResetConfirmAPIView.as_view(), name='password_reset_confirm'),
     path('activate/<str:uidb64>/<str:token>/', ActivateAccountAPIView.as_view(), name='activate_account'),
     path('address/', AddressAPIView.as_view(), name='address'),
+    path('address/<int:id>/', AddressAPIView.as_view(), name='address'),
+
    
     #####-----------------CUSTOMER------------------######
     
