@@ -46,6 +46,7 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = [
+            'id',
             'add_user',
             'add_line1',
             'add_line2',
@@ -55,7 +56,7 @@ class AddressSerializer(serializers.ModelSerializer):
             'country',
             'zipcode',
         ]
-        read_only_fields = ['add_user']  # `add_user` is automatically set based on the authenticated user.
+        read_only_fields = ['add_user','id']  # `add_user` is automatically set based on the authenticated user.
 
     def validate(self, attrs):
         """Custom validation to ensure valid address fields."""
