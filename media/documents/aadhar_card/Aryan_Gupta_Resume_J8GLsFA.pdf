@@ -1,0 +1,31 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;</script>
+
+    <script type="module" src="/@vite/client"></script>
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aryan Gupta - Frontend & Python Developer</title>
+    <meta name="description" content="Aryan Gupta - Frontend & Python Developer, Smart India Hackathon 2024 Grand Finalist" />
+    <meta name="author" content="Aryan Gupta" />
+
+    <meta property="og:title" content="Aryan Gupta - Frontend & Python Developer" />
+    <meta property="og:description" content="Frontend & Python Developer, Smart India Hackathon 2024 Grand Finalist" />
+    <meta property="og:type" content="website" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+
+  <body>
+    <div id="root"></div><script src="https://cdn.gpteng.co/lovable.js" type="module"></script>
+    <script type="module" src="/src/main.tsx?t=1751791466120"></script>
+  </body>
+</html>

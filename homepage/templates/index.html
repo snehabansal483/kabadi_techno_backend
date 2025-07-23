@@ -1,0 +1,139 @@
+<form id="donation-form">
+  <input type="text" id="name" placeholder="Enter your name" required />
+  <input type="email" id="email" placeholder="Enter your email" required />
+  <input type="text" id="phone" placeholder="Enter your phone number" required />
+  <input type="number" id="amount" placeholder="Enter amount" required />
+  <button type="submit">Pay</button>
+</form>
+<div id="payment-status"></div>
+
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f7fa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  #donation-form {
+    background: #ffffff;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  #donation-form input {
+    padding: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+
+  #donation-form input:focus {
+    border-color: #3399cc;
+  }
+
+  #donation-form button {
+    background-color: #3399cc;
+    color: #fff;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  #donation-form button:hover {
+    background-color: #287aa9;
+  }
+
+#payment-status {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #2e7d32; /* green for success by default */
+  display: none; /* hidden by default */
+  padding: 1rem;
+  background-color: #e8f5e9;
+  border: 1px solid #2e7d32;
+  border-radius: 8px;
+}
+
+</style>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  document.getElementById('donation-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('email').value;
+    const phone = document.getElementById('phone').value;
+    const amount = document.getElementById('amount').value;
+
+    fetch('http://127.0.0.1:8000/homepage/donate/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: name,
+        email: email,
+        phone_number: phone,
+        amount: amount
+      })
+    })
+    .then(res => {
+      if (!res.ok) {
+        throw new Error("Failed to create order");
+      }
+      return res.json();
+    })
+    .then(data => {
+      const options = {
+        key: data.razorpay_key,
+        amount: data.amount * 100,
+        currency: "INR",
+        name: "Kabadi Donation",
+        description: "Donation Transaction",
+        order_id: data.order_id,
+       handler: function (response) {
+       alert("✅ Payment Successful! Thank you for your donation.");
+        },
+        prefill: {
+          name: name,
+          email: email,
+          contact: phone
+        },
+        theme: {
+          color: "#3399cc"
+        }
+      };
+
+      const rzp1 = new Razorpay(options);
+      rzp1.open();
+    })
+    .catch(error => {
+  const statusDiv = document.getElementById("payment-status");
+  const errorMessage = "❌ Something went wrong: " + error.message;
+  
+  statusDiv.innerHTML = errorMessage;
+  statusDiv.style.color = "#c62828"; // red for error
+  statusDiv.style.backgroundColor = "#ffebee";
+  statusDiv.style.border = "1px solid #c62828";
+  statusDiv.style.display = "block";
+  
+  alert(errorMessage); // Show alert
+});
+  });
+</script>
