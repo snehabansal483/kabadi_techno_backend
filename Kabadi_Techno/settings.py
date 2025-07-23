@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'WebsiteContent',
     'homepage',
     'invoice',
+    'postalpin',
  
 ]
 
