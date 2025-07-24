@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import *
 from .serializers import *
-
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import renderers
 import json
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -312,10 +312,10 @@ class CustomerProfileAPIView(APIView):
     """API endpoint for managing customer profiles."""
 
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]  # 👈 add this to support form-data
 
     def get(self, request, *args, **kwargs):
         try:
-            # Retrieve the customer profile for the authenticated user
             customer_profile = CustomerProfile.objects.get(auth_id=request.user)
             serializer = CustomerProfileSerializer(customer_profile)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -324,30 +324,20 @@ class CustomerProfileAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         try:
-            user_instance = request.user  # Get the authenticated user
+            user_instance = request.user
 
-            # Check if a profile already exists for this user
             if CustomerProfile.objects.filter(auth_id=user_instance).exists():
-                return Response(
-                    {"error": "Customer profile already exists."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return Response({"error": "Customer profile already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Prepare data for the serializer
-            data = request.data.copy()
-            # data['auth_id'] = user_instance.id  # Explicitly set the `auth_id`
-
-            serializer = CustomerProfileSerializer(data=data, context={'auth_id': user_instance})
-
+            serializer = CustomerProfileSerializer(data=request.data, context={'auth_id': user_instance})
             if serializer.is_valid(raise_exception=True):
-                serializer.save()  # Save the profile
-                return Response(
-                    {"message": "Customer profile created successfully"},
-                    status=status.HTTP_201_CREATED,
-                )
+                serializer.save()
+                return Response({"message": "Customer profile created successfully"}, status=status.HTTP_201_CREATED)
 
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return Response({"error": f"Something went wrong: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def put(self, request, *args, **kwargs):
@@ -356,14 +346,23 @@ class CustomerProfileAPIView(APIView):
         except CustomerProfile.DoesNotExist:
             return Response({"error": "Customer profile not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CustomerProfileSerializer(customer_profile, data=request.data, partial=True)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response({"message": "Customer profile updated successfully"}, status=status.HTTP_200_OK)
+        try:
+            serializer = CustomerProfileSerializer(
+                customer_profile,
+                data=request.data,
+                partial=True,
+                context={'auth_id': request.user}  # ✅ add this
+            )
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                return Response({"message": "Customer profile updated successfully"}, status=status.HTTP_200_OK)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({"error": f"Server error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class DealerProfileAPIView(APIView):
