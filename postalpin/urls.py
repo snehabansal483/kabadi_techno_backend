@@ -3,5 +3,5 @@ from .views import AddressCreateView, VerifyDigiPIN
 
 urlpatterns = [
     path('create-address/', AddressCreateView.as_view(), name='create-address'),
-    path('verify-digipin/<str:digipin>/', VerifyDigiPIN.as_view(), name='verify-digipin'),
+    path('verify-digipin/', VerifyDigiPIN.as_view(), name='verify-digipin'),
 ]
