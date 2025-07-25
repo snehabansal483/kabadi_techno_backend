@@ -411,7 +411,7 @@ class DealerProfileAPIView(APIView):
             return Response({"error": "Dealer profile not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Update the dealer profile with the provided data
-        serializer = DealerProfileSerializer(dealer_profile, data=request.data, partial=True)
+        serializer = DealerProfileSerializer(dealer_profile, data=request.data, partial=True, context={'auth_id': request.user})
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response({"message": "Dealer profile updated successfully"}, status=status.HTTP_200_OK)
