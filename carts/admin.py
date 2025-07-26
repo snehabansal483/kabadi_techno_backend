@@ -9,14 +9,22 @@ class CartAdmin(admin.ModelAdmin):
 @admin_thumbnails.thumbnail('subcategory_image')
 class CartItemAdmin(admin.ModelAdmin):
     def thumbnail(self, object):
-        return format_html('<img src="{}" width="50"">'.format(object.subcategory_image.url))
+        if object.subcategory_image and hasattr(object.subcategory_image, 'url'):
+            return format_html('<img src="{}" width="50" />', object.subcategory_image.url)
+        return "No image"
+    
     thumbnail.short_description = "SubImage"
-    list_display= ('id', 'subcategory_name', 'thumbnail', 'customer', 'dealer_id', 'price_list', 'percentage', 'unit', 'quantity', 'price', 'is_active')
+
+    list_display = (
+        'id', 'subcategory_name', 'thumbnail', 'customer', 'dealer_id',
+        'price_list', 'percentage', 'unit', 'quantity', 'price', 'is_active'
+    )
     list_display_links = ('id', 'subcategory_name', 'customer', 'dealer_id', 'thumbnail')
-    ordering=()
+    ordering = ()
     filter_horizontal = ()
     list_filter = ()
     fieldsets = ()
+
 
 # Register your models here.
 admin.site.register(Cart, CartAdmin)

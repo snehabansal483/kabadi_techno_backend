@@ -92,8 +92,6 @@ class Address(models.Model):
     state = models.CharField(max_length=50, verbose_name="State")
     country = models.CharField(max_length=50, verbose_name="Country")
     zipcode = models.IntegerField(verbose_name="Zipcode")
-    digipin = models.CharField(max_length=10, verbose_name="India Post DigiPIN", blank=True, null=True)
-
     is_default = models.BooleanField(default=False, verbose_name="Default Address")
     
     def full_address(self):
