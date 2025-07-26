@@ -103,10 +103,10 @@ class AddDocuments(APIView):
 
 class GetDocuments(APIView):
     def get(self, request, dealer_id):
-        dealer_id = dealer_id
-        req = documents.objects.filter(id=dealer_id)
-        serializer = GetDocumentsSerializer(req, many = True)
+        req = documents.objects.filter(dealer_id=dealer_id)
+        serializer = GetDocumentsSerializer(req, many=True)
         return Response(serializer.data)
+
 
 class AddPincodes(APIView):
     serializer_class = AddPincodesSerializer
