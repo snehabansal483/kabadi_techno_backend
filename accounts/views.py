@@ -157,38 +157,31 @@ class ActivateAccountAPIView(APIView):
             return Response({"error": f"Something went wrong: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 class LoginAccount(APIView):
     """API endpoint for user login."""
-    
+
     def post(self, request):
         try:
-            # Extract data from request
             email = request.data.get("email")
             password = request.data.get("password")
-            user_type = request.data.get("user_type")  # Capture User Type from request
+            user_type = request.data.get("user_type")
 
-            # Basic validation for email and password
             if not email or not password:
                 return Response({"error": "Email and password are required."}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
-                # Try to get user by email (this will raise DoesNotExist if not found)
                 user = Account.objects.get(email=email)
             except ObjectDoesNotExist:
                 return Response({"message": "User doesn't exist"}, status=status.HTTP_401_UNAUTHORIZED)
-            
-            # Validate user type if provided
+
             if user.account_type != user_type:
                 return Response({"error": "Invalid user type."}, status=status.HTTP_401_UNAUTHORIZED)
 
-            # Authenticate the user with the provided password
             user = authenticate(request, email=email, password=password)
             if user is None:
                 return Response({"error": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED)
 
-            # Check if the account is activated
             if not user.is_active:
                 return self.handle_inactive_user(request, user)
 
-            # Generate token and update the user as online
             token = get_tokens_for_user(user)
             user.online = True
             user.save()
@@ -197,23 +190,29 @@ class LoginAccount(APIView):
 
             dealer_id = None
             customer_id = None
+            kt_id = None
+
             if user.account_type == 'Customer':
                 customer_profile = CustomerProfile.objects.filter(auth_id=user).first()
-                user_data['kt_id'] = customer_profile.kt_id if customer_profile else None
-                customer_id = customer_profile.id if customer_profile else None
+                if customer_profile:
+                    kt_id = customer_profile.kt_id
+                    customer_id = customer_profile.id
+
             elif user.account_type == 'Dealer':
                 dealer_profile = DealerProfile.objects.filter(auth_id=user).first()
-                user_data['kt_id'] = dealer_profile.kt_id if dealer_profile else None
-                dealer_id = dealer_profile.id if dealer_profile else None
-            else:
-                user_data['kt_id'] = None
+                if dealer_profile:
+                    kt_id = dealer_profile.kt_id
+                    dealer_id = dealer_profile.id
+
+            # Add dealer_id, customer_id, kt_id inside user
+            user_data['dealer_id'] = dealer_id
+            user_data['customer_id'] = customer_id
+            user_data['kt_id'] = kt_id
 
             return Response(
                 {
                     "token": token,
                     "user": user_data,
-                    "dealer_id": dealer_id,
-                    "customer_id": customer_id,  # 👈 Added customer_id to response
                     "message": "You have been logged in."
                 },
                 status=status.HTTP_200_OK
@@ -221,20 +220,6 @@ class LoginAccount(APIView):
 
         except Exception as e:
             return Response({"error": f"Something went wrong: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    def handle_inactive_user(self, request, user):
-        """Handles sending the activation email for inactive users."""
-        try:
-            token_generator = PasswordResetTokenGenerator()
-            token = token_generator.make_token(user)
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            activation_link = f"{current_site_frontend}/v3/api/activate/{uid}/{token}/"
-            content = {"site": activation_link}
-            
-            # Send the activation email
-            sendanemail(request, user=user, content=content, subject="Activate Your Account")
-            return Response({"error": "Account is not activated. Activation link sent."}, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return Response({"error": f"Email Token error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class SignupAPIView(APIView):
     """API endpoint for user signup."""
