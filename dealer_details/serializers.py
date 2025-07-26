@@ -35,7 +35,7 @@ class RequestAddCategoryGetSerializer(serializers.ModelSerializer):
 class DocumentsSerializer(serializers.ModelSerializer):
     class Meta:
         model = documents
-        exclude = ('id', 'status')
+        fields = '__all__'
 
 class GetDocumentsSerializer(serializers.ModelSerializer):
     class Meta:
