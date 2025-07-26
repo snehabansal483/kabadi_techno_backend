@@ -94,6 +94,7 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerProfile
         fields = [
+            'id'
             'ProfilePic',
         ]   
         read_only_fields = ['qrCode']  # These fields are auto-generated.

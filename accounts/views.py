@@ -155,7 +155,6 @@ class ActivateAccountAPIView(APIView):
             return Response({"message": "Account activated successfully."}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": f"Something went wrong: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 class LoginAccount(APIView):
     """API endpoint for user login."""
     
@@ -196,16 +195,25 @@ class LoginAccount(APIView):
 
             user_data = UserSerializer(user).data
 
+            dealer_id = None
+            customer_id = None
             if user.account_type == 'Customer':
-                user_data['kt_id'] = CustomerProfile.objects.filter(auth_id=user).first().kt_id
+                customer_profile = CustomerProfile.objects.filter(auth_id=user).first()
+                user_data['kt_id'] = customer_profile.kt_id if customer_profile else None
+                customer_id = customer_profile.id if customer_profile else None
             elif user.account_type == 'Dealer':
-                user_data['kt_id'] = DealerProfile.objects.filter(auth_id=user).first().kt_id
+                dealer_profile = DealerProfile.objects.filter(auth_id=user).first()
+                user_data['kt_id'] = dealer_profile.kt_id if dealer_profile else None
+                dealer_id = dealer_profile.id if dealer_profile else None
             else:
                 user_data['kt_id'] = None
+
             return Response(
                 {
                     "token": token,
                     "user": user_data,
+                    "dealer_id": dealer_id,
+                    "customer_id": customer_id,  # 👈 Added customer_id to response
                     "message": "You have been logged in."
                 },
                 status=status.HTTP_200_OK
@@ -213,7 +221,6 @@ class LoginAccount(APIView):
 
         except Exception as e:
             return Response({"error": f"Something went wrong: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
     def handle_inactive_user(self, request, user):
         """Handles sending the activation email for inactive users."""
         try:
