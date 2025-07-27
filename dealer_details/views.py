@@ -73,7 +73,7 @@ class DeletePrice(APIView):
             if PriceList.objects.filter(subcategory = subcategory, dealer = dealer, pincode = pincode).exists():
                 subcat = PriceList.objects.get(subcategory = subcategory, dealer = dealer, pincode = pincode)
                 subcat.delete()
-                return Response({'successful': 'The subcategory price added by the dealer for this pincode has been successfully removed'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'successful': 'The subcategory price added by the dealer for this pincode has been successfully removed'}, status=status.HTTP_200_OK)
             else:
                 return Response({'unsuccessful': 'The dealer has not added the price for this product or for this pincode'}, status=status.HTTP_404_NOT_FOUND)
 
