@@ -24,7 +24,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 User = get_user_model()
 
-current_site_frontend = 'http://localhost:5173/'
+current_site_frontend = 'http://localhost:5173'
 
 
 def sendanemail(request,user,content,subject,template=None):
