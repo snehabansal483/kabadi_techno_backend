@@ -24,7 +24,8 @@ from django.core.exceptions import ObjectDoesNotExist
 
 User = get_user_model()
 
-current_site_frontend = 'demo.kabaditechno.com'
+current_site_frontend = 'http://localhost:5173/'
+
 
 def sendanemail(request,user,content,subject,template=None):
     if template:
@@ -83,7 +84,7 @@ class PasswordResetAPIView(APIView):
             token_generator = PasswordResetTokenGenerator()
             token = token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
-            reset_link = f"{current_site_frontend}/v3/api/reset-password/{uid}/{token}/"
+            reset_link = f"{current_site_frontend}/reset-password/{uid}/{token}/"
             try:
                 sendanemail(request,user=user,content={"site":reset_link},subject="Reset Your Password",template='forget_password.html')
             except Exception as e:
@@ -99,7 +100,7 @@ class PasswordResetAPIView(APIView):
             token_generator = PasswordResetTokenGenerator()
             token = token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
-            activation_link = f"{current_site_frontend}/v3/api/activate/{uid}/{token}/"
+            activation_link = f"{current_site_frontend}/email-verify/{uid}/{token}/"
             content = {"site": activation_link}
             
             # Send the activation email
@@ -239,7 +240,7 @@ class SignupAPIView(APIView):
                     token_generator = PasswordResetTokenGenerator()
                     token = token_generator.make_token(user)
                     uid = urlsafe_base64_encode(force_bytes(user.pk))
-                    activation_link = f"{current_site_frontend}/v3/api/activate/{uid}/{token}/"
+                    activation_link = f"{current_site_frontend}/email-verify/{uid}/{token}/"
                     content = {"site": activation_link}
                     print(activation_link)
                 except Exception as e:
