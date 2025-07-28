@@ -1,7 +1,8 @@
 from rest_framework import serializers
-from .models import Address
+from .models import DigiPinAddress
 
-class AddressSerializer(serializers.ModelSerializer):
+class DigiPinAddressSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Address
+        model = DigiPinAddress
         fields = '__all__'
+        read_only_fields = ['digipin', 'digipin_url']  # Assuming these fields are set automatically

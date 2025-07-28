@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import *
-
+from postalpin.models import DigiPinAddress 
 
 class LoginSerializer(serializers.ModelSerializer):
     email= serializers.EmailField(max_length=255,required=True)
@@ -43,6 +43,8 @@ class AccountSerializer(serializers.ModelSerializer):
 
 
 class AddressSerializer(serializers.ModelSerializer):
+    digipin_data = serializers.SerializerMethodField()
+
     class Meta:
         model = Address
         fields = [
@@ -55,41 +57,41 @@ class AddressSerializer(serializers.ModelSerializer):
             'state',
             'country',
             'zipcode',
+            'digipin_data',
         ]
-        read_only_fields = ['add_user','id']  # `add_user` is automatically set based on the authenticated user.
+        read_only_fields = ['add_user', 'id']
+
+    def get_digipin_data(self, obj):
+        try:
+            postal_address = DigiPinAddress.objects.filter(pincode=str(obj.zipcode)).first()
+            if postal_address:
+                return {
+                    "digipin": postal_address.digipin,
+                    "latitude": postal_address.latitude,
+                    "longitude": postal_address.longitude,
+                    "digipin_url": postal_address.digipin_url
+                }
+        except Exception:
+            pass
+        return None
 
     def validate(self, attrs):
-        """Custom validation to ensure valid address fields."""
         if not self.context.get('add_user'):
-            raise serializers.ValidationError("user login required.")
+            raise serializers.ValidationError("User login required.")
         return attrs
 
     def create(self, validated_data):
-        # Retrieve `add_user` from context
         add_user = self.context.get('add_user')
         if not add_user:
             raise serializers.ValidationError("Authenticated user is required.")
-
-        # Create the address with `add_user`
         return Address.objects.create(add_user=add_user, **validated_data)
-    def validate_digipin(self, value):
-        if value:
-            if len(value) > 10:
-                raise serializers.ValidationError("DigiPIN must be at most 10 characters.")
-            if not value.isalnum():
-                raise serializers.ValidationError("DigiPIN must contain only letters and numbers.")
-        return value
 
     def update(self, instance, validated_data):
-        # Update only allowed fields
         for field in ['add_line1', 'add_line2', 'landmark', 'city', 'state', 'country', 'zipcode']:
             setattr(instance, field, validated_data.get(field, getattr(instance, field)))
-
         instance.save()
         return instance
-
-
-
+    
 class CustomerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerProfile
