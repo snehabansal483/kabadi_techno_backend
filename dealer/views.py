@@ -7,6 +7,7 @@ from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from urllib3 import Retry
 from .serializers import *
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -24,34 +25,65 @@ def dealerHome(request):
 
 import requests
 import json
+from requests.adapters import HTTPAdapter
+# Helper function to fetch pincode info with retry
+def fetch_pincode_info(pincode):
+    session = requests.Session()
+    retry = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[502, 503, 504]
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+
+    india_post_url = f"https://api.postalpincode.in/pincode/{pincode}"
+
+    try:
+        res = session.get(india_post_url, timeout=5)
+        res.raise_for_status()
+        data = res.json()
+        if data and data[0]["PostOffice"] is not None:
+            return {
+                "source": "India Post",
+                "data": data[0]["PostOffice"][0]
+            }
+    except Exception:
+        pass  # silently fall back
+
+    # ✅ Fallback: Zippopotam API (supports India as IN)
+    try:
+        zip_url = f"https://api.zippopotam.us/IN/{pincode}"
+        zip_res = session.get(zip_url, timeout=5)
+        zip_res.raise_for_status()
+        zip_data = zip_res.json()
+
+        return {
+            "source": "Zippopotam",
+            "data": {
+                "Country": zip_data.get("country"),
+                "State": zip_data["places"][0].get("state"),
+                "PlaceName": zip_data["places"][0].get("place name"),
+                "Latitude": zip_data["places"][0].get("latitude"),
+                "Longitude": zip_data["places"][0].get("longitude")
+            }
+        }
+    except Exception as e:
+        raise Exception(f"Both APIs failed: {str(e)}")
+
 
 @api_view(['GET'])
 def getdealer(request, pincode):
     try:
         queryset = dealer.objects.filter(pincode__icontains=pincode)
+        
+        try:
+            pincode_info = fetch_pincode_info(pincode)
+        except Exception as e:
+            pincode_info = None
+            pincode_error = str(e)
 
-        ENDPOINT = "https://api.postalpincode.in/pincode/"
-        response1 = requests.get(ENDPOINT + str(pincode), timeout=5)
-        response1.raise_for_status()
-        pincode_info = response1.json()
-
-        # Handle invalid pincode or no results
-        if not pincode_info or pincode_info[0]['PostOffice'] is None:
-            return Response({
-                'data': {
-                    'status': 404,
-                    'message': 'Invalid or unserviceable pincode'
-                }
-            }, status=404)
-
-        # returnPincodeData = pincode_info[0]['PostOffice'][0]
-
-        # district = returnPincodeData['District']
-        # region = returnPincodeData['Region']
-        # circle = returnPincodeData['Circle']
-        # state = returnPincodeData['State']
-        # country = returnPincodeData['Country']
-        # pincode1 = returnPincodeData['Pincode']
 
         li = []
         for i in queryset:
@@ -63,9 +95,28 @@ def getdealer(request, pincode):
                 "min_qty": i.min_qty,
                 "qty": i.max_qty,
                 "other-pincodes": i.pincode,
-                "pincode_data":pincode_info
+                "pincode_data": pincode_info.get("data") if pincode_info else None,
+                "source": pincode_info.get("source") if pincode_info else None,
             }
             li.append(abcd)
+
+        if pincode_info is None:
+            if not li:
+                return Response({
+                    'data': {
+                        'status': 404,
+                        'message': f'No dealers found and pincode info unavailable: {pincode_error}'
+                    }
+                }, status=404)
+            else:
+                return Response({
+                    'data': {
+                        'status': 206,
+                        'message': f'Pincode info unavailable: {pincode_error}',
+                        'dealers': li
+                    }
+                }, status=206)
+
 
         return Response({
             'data': {
@@ -74,22 +125,14 @@ def getdealer(request, pincode):
             }
         })
 
-    except requests.RequestException as e:
-        return Response({
-            'data': {
-                'status': 500,
-                'message': f'Error while fetching pincode info: {str(e)}'
-            }
-        }, status=500)
-
     except Exception as e:
-        # Catch any other unhandled exceptions
         return Response({
             'data': {
                 'status': 500,
                 'message': f'Internal server error: {str(e)}'
             }
         }, status=500)
+
 
 @api_view(['GET'])
 def dealerList(request): #View Function for Listing dealers.
