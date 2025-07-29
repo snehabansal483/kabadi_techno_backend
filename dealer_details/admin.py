@@ -48,16 +48,31 @@ class documentsAdmin(admin.ModelAdmin):
     fieldsets = ()
 
 
-class GetPincodesAdmin(admin.ModelAdmin):
-    list_display= ('id', 'dealer_id', 'addrequest', 'pincode1', 'pincode2', 'pincode3', 'pincode4', 'pincode5', 'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10')
-    list_display_links = ('id', 'dealer_id', 'addrequest')
-    ordering=()
-    filter_horizontal = ()
-    list_filter = ()
-    fieldsets = ()
+@admin.action(description='Approve addrequest and update pincodes')
+def approve_addrequest(modeladmin, request, queryset):
+    for obj in queryset:
+        if obj.addrequest:
+            # Parse the addrequest — assuming it's a comma-separated list of pincodes
+            new_pincodes = obj.addrequest.split(",")
+            new_pincodes = [p.strip() for p in new_pincodes if p.strip().isdigit()]
 
-admin.site.register(PriceList, PriceListAdmin)
-admin.site.register(add_category, add_categoryAdmin)
-admin.site.register(documents, documentsAdmin)
+            # Assign up to 10 pincodes
+            for i in range(min(10, len(new_pincodes))):
+                setattr(obj, f'pincode{i+1}', new_pincodes[i])
+
+            obj.addrequest = None  # Clear the request after processing
+            obj.save()
+
+class GetPincodesAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'dealer_id', 'addrequest',
+        'pincode1', 'pincode2', 'pincode3', 'pincode4', 'pincode5',
+        'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10'
+    )
+    list_display_links = ('id', 'dealer_id', 'addrequest')
+    actions = [approve_addrequest]
+
+# Register admin
 admin.site.register(GetPincodes, GetPincodesAdmin)
+
 
