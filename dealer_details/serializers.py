@@ -68,7 +68,7 @@ class UpdatePincodesSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GetPincodes
-        fields = ('dealer_id', 'pincode1', 'pincode2', 'pincode3', 'pincode4', 'pincode5', 'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10')
+        fields = ('dealer_id', 'pincode1', 'pincode2', 'pincode3', 'pincode4', 'pincode5', 'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10', 'pincode11')
 
 class SearchSubcategoryByPincodeSerializer(serializers.ModelSerializer):
     kt_id = serializers.SerializerMethodField(read_only=True)

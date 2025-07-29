@@ -112,7 +112,7 @@ class GetPincodes(models.Model):
     pincode8 = models.CharField(max_length=6, null=True, blank=True)
     pincode9 = models.CharField(max_length=6, null=True, blank=True)
     pincode10 = models.CharField(max_length=6, null=True, blank=True)
-    pincode11= models.CharField(max_length=6, null=True, blank=True)
+    pincode11 = models.CharField(max_length=6, null=True, blank=True)
     addrequest = models.CharField(max_length=6, null=True, blank=True)
     no_of_pincodes = models.IntegerField(default = 5, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

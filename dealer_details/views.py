@@ -167,6 +167,8 @@ class GetallPincodes(APIView):
                 context.update({'Pincode 9': pins.pincode9})
             if pins.pincode10:
                 context.update({'Pincode 10': pins.pincode10})
+            if pins.pincode11:
+                context.update({'Pincode 11': pins.pincode11})
             return Response(context)
         except ObjectDoesNotExist:
             return Response({'Not Found': 'There is no such dealer id that has pincodes registered'}, status=status.HTTP_404_NOT_FOUND)
@@ -198,7 +200,7 @@ class No_of_pincodes(APIView):
             if pins.pincode10:
                 pin_nos += 1
             if pins.pincode11:
-                pin_nos += 1    
+                pin_nos += 1
 
             pins.no_of_pincodes = pin_nos
             pins.save()
@@ -210,23 +212,24 @@ class No_of_pincodes(APIView):
 
 class UpdatePincodes(APIView):
     serializer_class = UpdatePincodesSerializer
+
     def post(self, request):
-        serializer = UpdatePincodesSerializer(data = request.data)
-        dealer_id = request.data['dealer_id']
-        pincode1 = request.data['pincode1']
-        pincode2 = request.data['pincode2']
-        pincode3 = request.data['pincode3']
-        pincode4 = request.data['pincode4']
-        pincode5 = request.data['pincode5']
-        pincode6 = request.data['pincode6']
-        pincode7 = request.data['pincode7']
-        pincode8 = request.data['pincode8']
-        pincode9 = request.data['pincode9']
-        pincode10 = request.data['pincode10']
+        serializer = UpdatePincodesSerializer(data=request.data)
+        dealer_id = request.data.get('dealer_id')
+        pincode1 = request.data.get('pincode1')
+        pincode2 = request.data.get('pincode2')
+        pincode3 = request.data.get('pincode3')
+        pincode4 = request.data.get('pincode4')
+        pincode5 = request.data.get('pincode5')
+        pincode6 = request.data.get('pincode6')
+        pincode7 = request.data.get('pincode7')
+        pincode8 = request.data.get('pincode8')
+        pincode9 = request.data.get('pincode9')
+        pincode10 = request.data.get('pincode10')
+        pincode11 = request.data.get('pincode11')  # Will be None if not present
 
-
-        if serializer.is_valid(raise_exception = True):
-            if GetPincodes.objects.filter(dealer_id = dealer_id).exists():
+        if serializer.is_valid(raise_exception=True):
+            if GetPincodes.objects.filter(dealer_id=dealer_id).exists():
                 pins = GetPincodes.objects.get(dealer_id=dealer_id)
                 pins.pincode1 = pincode1
                 pins.pincode2 = pincode2
@@ -238,12 +241,12 @@ class UpdatePincodes(APIView):
                 pins.pincode8 = pincode8
                 pins.pincode9 = pincode9
                 pins.pincode10 = pincode10
+                pins.pincode11 = pincode11  # Will be None if not sent
 
                 pins.save()
                 return Response(serializer.data)
             else:
                 return Response({'unsuccessful': 'The dealer is not registered in pincodes table yet'})
-
 class SearchSubcategoryByPincode(APIView):
     def get(self, request, pincode):
         try:

@@ -59,7 +59,7 @@ def approve_addrequest(modeladmin, request, queryset):
 
             # Get current pincode values
             pincode_fields = ['pincode1', 'pincode2', 'pincode3', 'pincode4', 'pincode5', 
-                              'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10','pincode11']
+                              'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10', 'pincode11']
             current_pins = [getattr(obj, field) for field in pincode_fields]
             
             # Fill in empty slots
@@ -85,7 +85,7 @@ def approve_addrequest(modeladmin, request, queryset):
 
 class GetPincodesAdmin(admin.ModelAdmin):
     list_display = ('id', 'dealer_id', 'addrequest', 'pincode1', 'pincode2', 'pincode3', 'pincode4', 'pincode5', 
-                    'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10')
+                    'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10', 'pincode11')
     list_display_links = ('id', 'dealer_id', 'addrequest')
     actions = [approve_addrequest]
 
