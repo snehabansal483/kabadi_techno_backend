@@ -197,6 +197,8 @@ class No_of_pincodes(APIView):
                 pin_nos += 1
             if pins.pincode10:
                 pin_nos += 1
+            if pins.pincode11:
+                pin_nos += 1    
 
             pins.no_of_pincodes = pin_nos
             pins.save()

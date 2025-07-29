@@ -59,7 +59,7 @@ def approve_addrequest(modeladmin, request, queryset):
 
             # Get current pincode values
             pincode_fields = ['pincode1', 'pincode2', 'pincode3', 'pincode4', 'pincode5', 
-                              'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10']
+                              'pincode6', 'pincode7', 'pincode8', 'pincode9', 'pincode10','pincode11']
             current_pins = [getattr(obj, field) for field in pincode_fields]
             
             # Fill in empty slots
