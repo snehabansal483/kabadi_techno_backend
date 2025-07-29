@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import PriceList, GetPincodes, add_category, documents
 
 class PriceListGetSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(write_only=True)
+    id = serializers.IntegerField()
     class Meta:
         model = PriceList
         fields = '__all__'

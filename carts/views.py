@@ -208,14 +208,7 @@ class add_item(APIView):
             return Response({'msg': 'Cart item updated', 'id': id})
         return Response(serializer.errors, status=400)
 
-    def delete(self, request, id, format=None):
-        try:
-            item = CartItem.objects.get(id=id)
-            item.delete()
-            return Response({'msg': 'Cart item has been deleted', 'id': id})
-        except CartItem.DoesNotExist:
-            return Response({'error': 'Cart item not found'}, status=status.HTTP_404_NOT_FOUND)
-
+  
     def delete(self, request, customer_id, dealer_id, format=None):
         try:
             items = CartItem.objects.filter(customer_id=customer_id, dealer_id=dealer_id)
@@ -231,6 +224,14 @@ class add_item(APIView):
 #patch request for item 
 #delete request for item
 #delete request for all items of customer and dealer jodi
+class DeleteCartItem(APIView):
+    def delete(self, request, id, format=None):
+        try:
+            item = CartItem.objects.get(id=id)
+            item.delete()
+            return Response({'msg': 'Cart item has been deleted', 'id': id})
+        except CartItem.DoesNotExist:
+            return Response({'error': 'Cart item not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class add_order(APIView):
     serializer_class=add_order_serializer
