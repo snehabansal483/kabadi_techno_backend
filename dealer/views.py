@@ -248,7 +248,7 @@ class RequestInquiryPost(APIView):
     serializer_class = RequestInquiryPostSerializer
 
     def post(self, request):
-        serializer = RequestInquiryPostSerializer(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
             inquiry = serializer.save()
 
@@ -259,8 +259,19 @@ class RequestInquiryPost(APIView):
             except dealer.DoesNotExist:
                 return Response({"error": "Dealer not found"}, status=404)
 
+            # Email content
             subject = "New Request Inquiry"
-            message = (
+
+            context = {
+                "dealer_name": dealer_obj.name,
+                "customer_name": inquiry.customer_name,
+                "img": "https://example.com/static/logo.png",  # Replace with your actual logo URL
+                "site": "https://kabadi.tech/dashboard"         # Replace with your actual dashboard URL
+            }
+
+            html_content = render_to_string("emails/request_inquiry.html", context)
+
+            text_content = (
                 f"Dear {dealer_obj.name},\n\n"
                 f"You have received a new inquiry:\n\n"
                 f"Customer Name: {inquiry.customer_name}\n"
@@ -269,26 +280,27 @@ class RequestInquiryPost(APIView):
                 f"Item: {inquiry.itemName}\n"
                 f"Quantity: {inquiry.quantity}\n"
                 f"Description: {inquiry.description}\n\n"
-                "Please log in to your dashboard to respond.\n"
+                "Please log in to your dashboard to respond."
             )
 
             try:
-                send_mail(
-                    subject,
-                    message,
-                    settings.EMAIL_HOST_USER,  # or settings.DEFAULT_FROM_EMAIL if defined
-                    [dealer_email],
-                    fail_silently=False,
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=text_content,
+                    from_email=settings.EMAIL_HOST_USER,
+                    to=[dealer_email],
                 )
-                logger.info(f"Email sent to {dealer_email}")
+                email.attach_alternative(html_content, "text/html")
+                email.send()
+
+                logger.info(f"HTML email sent to {dealer_email}")
             except BadHeaderError:
                 return Response({"error": "Invalid header found."}, status=400)
             except Exception as e:
                 logger.error(f"Email sending failed: {e}")
                 return Response({"error": f"Failed to send email: {str(e)}"}, status=500)
 
-            return Response(serializer.data)
-        
+            return Response(serializer.data)        
 # class Getdealers(generics.ListAPIView): #View Function for getting dealers by Longitude & Latitude.
 #     queryset = dealer.objects.all()
 #     serializer_class = dealerSerializer
