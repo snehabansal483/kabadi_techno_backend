@@ -263,6 +263,6 @@ class SearchSubcategoryByPincode(APIView):
             serializer = SearchSubcategoryByPincodeSerializer(subcategory_nms, many = True)
             new_serializer_data = list(serializer.data)
             new_serializer_data.append(context)
-            return Response(new_serializer_data, status=status.HTTP_302_FOUND)
+            return Response(new_serializer_data, status=status.HTTP_200_OK)
         except ObjectDoesNotExist:
             return Response({'Not Found': 'There are no subcategories available on this pincode'}, status=status.HTTP_404_NOT_FOUND)
