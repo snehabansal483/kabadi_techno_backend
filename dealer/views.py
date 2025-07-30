@@ -237,12 +237,22 @@ def adddealer(request):
 #             })
 
 
+# class RequestInquiryGet(APIView):
+#     def get(self, request, dealer_id):
+#         dealer_id = dealer_id
+#         item = RequestInquiry.objects.filter(dealer_id=dealer_id)
+#         serializer = RequestInquiryGetSerializer(item, many = True)
+#         return Response(serializer.data)
+
 class RequestInquiryGet(APIView):
-    def get(self, request, dealer_id):
-        dealer_id = dealer_id
-        item = RequestInquiry.objects.filter(dealer_id=dealer_id)
-        serializer = RequestInquiryGetSerializer(item, many = True)
-        return Response(serializer.data)
+    def get(self, request, email):
+        try:
+            dealer_instance = dealer.objects.get(email=email)
+            item = RequestInquiry.objects.filter(dealer_id=dealer_instance)
+            serializer = RequestInquiryGetSerializer(item, many=True)
+            return Response(serializer.data)
+        except dealer.DoesNotExist:
+            return Response({"error": "Dealer not found"}, status=404)
 
 class RequestInquiryPost(APIView):
     serializer_class = RequestInquiryPostSerializer
