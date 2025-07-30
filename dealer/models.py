@@ -12,6 +12,7 @@ MY_CHOICES = (('Paper', 'Paper'),
 
 class dealer(models.Model):
     name = models.CharField(_("dealer Name"),max_length=100)
+    email = models.EmailField(_("Dealer Email"), max_length=100, unique=True,null= True, blank=False)
     mobile = models.CharField(_("dealer Mobile No."),max_length=10)
     dealing = MultiSelectField(choices=MY_CHOICES, max_choices=3, max_length=300) # if i want to incre then incr the number
     min_qty = models.IntegerField(_("Minimum Quantity"),)

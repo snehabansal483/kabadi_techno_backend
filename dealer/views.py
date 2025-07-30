@@ -1,20 +1,32 @@
 #from django.contrib.gis.geos import Point
 #from django.contrib.gis.measure import D
 #from django.contrib.gis.db.models.functions import Distance
-from django.http import HttpResponse
+from django.http import BadHeaderError, HttpResponse
 # from django_filters.rest_framework import DjangoFilterBackend
 #from rest_framework import generics
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from urllib3 import Retry
+
+from Kabadi_Techno import settings
 from .serializers import *
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 import json
 from .models import dealer
 import requests
+import logging
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.template.loader import render_to_string
+import requests
+import json
+from requests.adapters import HTTPAdapter
 
+
+current_site_frontend = 'http://localhost:5173'
+
+logger = logging.getLogger(__name__) 
 status_200=status.HTTP_200_OK
 status_400=status.HTTP_400_BAD_REQUEST
 
@@ -22,10 +34,6 @@ def dealerHome(request):
     html = "<html><head><title>Kabadi Techno API</title></head><body><center><b><p>Kabadi Techno API</p> </center></body></html>"
     return HttpResponse(html)
 
-
-import requests
-import json
-from requests.adapters import HTTPAdapter
 # Helper function to fetch pincode info with retry
 def fetch_pincode_info(pincode):
     session = requests.Session()
@@ -90,6 +98,7 @@ def getdealer(request, pincode):
             abcd = {
                 "id": i.id,
                 "name": i.name,
+                "email":i.email,
                 "mobile": i.mobile,
                 "dealing_in": i.dealing,
                 "min_qty": i.min_qty,
@@ -158,30 +167,47 @@ def dealerList(request): #View Function for Listing dealers.
 #         })
 
 @api_view(['POST'])
-def adddealer(request): #View Function for Adding dealers.
+def adddealer(request):
     try:
         name = request.data['name']
+        email = request.data['email']
         mobile = request.data['mobile']
         dealing = request.data['dealing']
-        min_qty = request.data['min_qty']
-        max_qty = request.data['max_qty']
+        min_qty = int(request.data['min_qty'])
+        max_qty = int(request.data['max_qty'])
         pincode = request.data['pincode']
-        timing = request.data['timing']
-        live_location = request.data['live_location']
-        if min_qty < 1 or max_qty < 2:
-            return Response('Validation Occured')
-        else:
-            obj = dealer(name=name,mobile=mobile,dealing=dealing,min_qty=min_qty,max_qty=max_qty,pincode=pincode,timing=timing, live_location=live_location)
-            # ,geom=geom)
-            obj.save()
+        timing = request.data.get('timing', '')
+        live_location = request.data.get('live_location', '')
 
-        return Response('dealer Created Successfully')
+        if min_qty < 1 or max_qty < 2:
+            return Response({'error': 'Validation failed: quantity values are not valid'}, status=400)
+
+        obj = dealer(
+            name=name,
+            email=email,
+            mobile=mobile,
+            dealing=dealing,
+            min_qty=min_qty,
+            max_qty=max_qty,
+            pincode=pincode,
+            timing=timing,
+            live_location=live_location
+        )
+        obj.save()
+
+        return Response({
+            "status": "success",
+            "message": "Dealer Created Successfully",
+            "dealer_id": obj.id
+        })
+
     except Exception as e:
-        return Response({           
-                'data': {
-                    'error': e
-                    },
-                })
+        return Response({
+            'data': {
+                'error': str(e)  # ✅ FIXED: convert to string
+            }
+        }, status=500)
+
 # @api_view(['PUT'])
 # def dealerUpdate(request,pk): #View Function for Updating dealers.
 #     try:
@@ -220,12 +246,49 @@ class RequestInquiryGet(APIView):
 
 class RequestInquiryPost(APIView):
     serializer_class = RequestInquiryPostSerializer
+
     def post(self, request):
         serializer = RequestInquiryPostSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(serializer.data)
+            inquiry = serializer.save()
 
+            dealer_id = request.data.get("dealer_id")
+            try:
+                dealer_obj = dealer.objects.get(id=dealer_id)
+                dealer_email = dealer_obj.email
+            except dealer.DoesNotExist:
+                return Response({"error": "Dealer not found"}, status=404)
+
+            subject = "New Request Inquiry"
+            message = (
+                f"Dear {dealer_obj.name},\n\n"
+                f"You have received a new inquiry:\n\n"
+                f"Customer Name: {inquiry.customer_name}\n"
+                f"Phone: {inquiry.phone}\n"
+                f"Email: {inquiry.email}\n"
+                f"Item: {inquiry.itemName}\n"
+                f"Quantity: {inquiry.quantity}\n"
+                f"Description: {inquiry.description}\n\n"
+                "Please log in to your dashboard to respond.\n"
+            )
+
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    settings.EMAIL_HOST_USER,  # or settings.DEFAULT_FROM_EMAIL if defined
+                    [dealer_email],
+                    fail_silently=False,
+                )
+                logger.info(f"Email sent to {dealer_email}")
+            except BadHeaderError:
+                return Response({"error": "Invalid header found."}, status=400)
+            except Exception as e:
+                logger.error(f"Email sending failed: {e}")
+                return Response({"error": f"Failed to send email: {str(e)}"}, status=500)
+
+            return Response(serializer.data)
+        
 # class Getdealers(generics.ListAPIView): #View Function for getting dealers by Longitude & Latitude.
 #     queryset = dealer.objects.all()
 #     serializer_class = dealerSerializer
