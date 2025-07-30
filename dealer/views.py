@@ -264,9 +264,8 @@ class RequestInquiryPost(APIView):
 
             context = {
                 "dealer_name": dealer_obj.name,
-                "customer_name": inquiry.customer_name,
-                "img": "https://example.com/static/logo.png",  # Replace with your actual logo URL
-                "site": "https://kabadi.tech/dashboard"         # Replace with your actual dashboard URL
+                "customer_name": inquiry.customer_name,  # Replace with your actual logo URL
+                "site": f"{current_site_frontend}"    # Replace with your actual dashboard URL
             }
 
             html_content = render_to_string("emails/request_inquiry.html", context)

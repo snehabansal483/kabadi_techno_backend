@@ -1,89 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>New Request Inquiry</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            color: #fff;
-        }
+  <meta charset="UTF-8" />
+  <title>New Request Inquiry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      background-color: #15434d;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      color: #ffffff;
+    }
 
-        .email__activation {
-            background-color: #15434d;
-            width: 100%;
-            height: 100vh;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            padding: 20px;
-            box-sizing: border-box;
-        }
+    .container {
+      width: 100%;
+      max-width: 600px;
+      margin: auto;
+      background-color: #15434d;
+      text-align: center;
+      padding: 30px 20px;
+    }
 
-        #logo {
-            width: 150px;
-            margin: 20px 0 30px 0;
-        }
+    #logo {
+      max-width: 100%;
+      width: auto;
+      height: auto;
+      background-color: #ECF0F1;
+    }
 
-        .typist h1 {
-            font-family: 'Dancing Script', cursive;
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-        }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
 
-        h3.message {
-            font-size: 1.3rem;
-            margin-bottom: 30px;
-            padding: 0 20px;
-        }
+    .message {
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 30px;
+      color: #ffffff;
+    }
 
-        .email__activate__btn {
-            padding: 12px 30px;
-            background-color: #56b124;
-            border-radius: 50px;
-            font-size: 1rem;
-            color: #fff;
-            text-decoration: none;
-            font-weight: bold;
-            border: 2px solid #fff;
-        }
+    .button {
+      display: inline-block;
+      background-color: #56b124;
+      color: #ffffff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
 
-        .term__footer {
-            margin-top: 40px;
-            font-size: 0.9rem;
-            color: #ccc;
-        }
+    .footer {
+      font-size: 13px;
+      color: #ccc;
+    }
 
-        @media (max-width: 600px) {
-            .typist h1 {
-                font-size: 1.8rem;
-            }
+    @media only screen and (max-width: 480px) {
+      h1 {
+        font-size: 20px;
+      }
 
-            h3.message {
-                font-size: 1.1rem;
-            }
-        }
-    </style>
+      .message {
+        font-size: 14px;
+      }
+
+      .button {
+        padding: 10px 20px;
+        font-size: 14px;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="email__activation">
-        <img id="logo" src="{{ img }}" alt="logo">
-        <div class="typist">
-            <h1>New Inquiry Received</h1>
-        </div>
-        <h3 class="message">
-            Dear {{ dealer_name }},<br><br>
-            You have received a new request from <strong>{{ customer_name }}</strong>.<br><br>
-            Please login to your dashboard to view the details and respond accordingly.
-        </h3>
-        <a href="{{ site }}" class="email__activate__btn">Login to Dashboard</a>
-        <div class="term__footer">
-            © Kabadi Techno Private Limited
-        </div>
-    </div>
+  <div class="container">
+    <img id="logo" src="https://i.ibb.co/vJRYZcs/logo1.jpg" alt="Kabadi Techno Logo" />
+    <h1>New Inquiry Received</h1>
+    <p class="message">
+      Dear {{ dealer_name }},<br /><br />
+      You have received a new request from <strong>{{ customer_name }}</strong>.<br /><br />
+      Please login to your dashboard to view the details and respond accordingly.
+    </p>
+    <a href="{{ site }}/signin" class="button">Login to Dashboard</a>
+    <p class="footer">© Kabadi Techno Private Limited</p>
+  </div>
 </body>
 </html>
