@@ -8,7 +8,6 @@ from .serializers import *
 from django.core.exceptions import ObjectDoesNotExist
 
 # Create your views here.
-
 class TakeOrderDetails(APIView):
     serializer_class = TakeOrderDetailsSerializer
     def post(self, request):
