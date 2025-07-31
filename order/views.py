@@ -79,12 +79,20 @@ class OrderProductInitialization(APIView):
 
                 for cart_item in cart_items:
                     if not OrderProduct.objects.filter(order=order, cart_item=cart_item).exists():
-                        OrderProduct.objects.create(
+                        order_product = OrderProduct.objects.create(
                             order=order,
                             cart_item=cart_item,
-                            is_ordered=True,  # ✅ Important: mark this item as ordered
-                            status='Pending'  # Optional: default order status
+                            is_ordered=True,
+                            status='Pending'
                         )
+                        # The custom save() method will populate all fields from cart_item
+                        # Ensure dealer_id is set correctly
+                        if not order_product.dealer_id:
+                            order_product.dealer_id = cart_item.dealer_id
+                            order_product.save()
+
+                # Mark cart items as inactive after successful order creation
+                cart_items.update(is_active=False)
 
                 # ✅ Mark the main order as ordered
                 order.is_ordered = True
@@ -111,10 +119,9 @@ class ViewOrder(APIView):
 
             # Fetch order products related to this order and exclude cancelled ones
             order_products = OrderProduct.objects.filter(
-                customer_id=customer_id,
                 order=ordeR,
                 is_ordered=True
-            )
+            ).exclude(status__in=['Cancelled by Customer', 'Cancelled by dealer'])
 
             if not order_products.exists():
                 return Response({'Empty': 'The Order Is Empty'}, status=status.HTTP_204_NO_CONTENT)
@@ -125,15 +132,14 @@ class ViewOrder(APIView):
             percentage_amt = 0
 
             for order_product in order_products:
-                if order_product.status not in ['Cancelled by Customer', 'Cancelled by dealer']:
-                    subtotal = order_product.price * order_product.quantity
-                    gst_amount = subtotal * (order_product.GST / 100)
-                    percentage_amount = subtotal * (order_product.percentage / 100)
+                subtotal = order_product.price * order_product.quantity
+                gst_amount = subtotal * (order_product.GST / 100)
+                percentage_amount = subtotal * (order_product.percentage / 100)
 
-                    total += subtotal
-                    tax += gst_amount
-                    quantity += order_product.quantity
-                    percentage_amt += percentage_amount
+                total += subtotal
+                tax += gst_amount
+                quantity += order_product.quantity
+                percentage_amt += percentage_amount
 
             order_total = round(total + tax + percentage_amt, 2)
 
@@ -198,7 +204,13 @@ class CancelOrderViaCustomer(APIView):
         return Response({'Unsuccessful': 'There are no active orders with this order ID and customer ID'}, status=status.HTTP_202_ACCEPTED)
 class CancelOrderViadealer(APIView):
     def get(self, request, dealer_id, order_number):
-        order_products = OrderProduct.objects.filter(dealer_id=dealer_id, order_number=order_number, is_ordered=True)
+        # Look for order products that can be cancelled (not already cancelled)
+        order_products = OrderProduct.objects.filter(
+            dealer_id=dealer_id, 
+            order_number=order_number, 
+            is_ordered=True
+        ).exclude(status__in=['Cancelled by dealer', 'Cancelled by Customer'])
+        
         if order_products.exists():
             order_products.update(status='Cancelled by dealer')
             try:
@@ -208,11 +220,34 @@ class CancelOrderViadealer(APIView):
             except Order.DoesNotExist:
                 pass
             return Response({'Cancelled': 'The Order Is Cancelled by the dealer'}, status=status.HTTP_202_ACCEPTED)
-        return Response({'Unsuccessful': 'There are no orders with this order Id and dealer id'}, status=status.HTTP_202_ACCEPTED)
+        
+        # Debug information to help identify the issue
+        all_order_products = OrderProduct.objects.filter(order_number=order_number)
+        if all_order_products.exists():
+            dealer_ids = list(all_order_products.values_list('dealer_id', flat=True).distinct())
+            statuses = list(all_order_products.values_list('status', flat=True).distinct())
+            return Response({
+                'Unsuccessful': 'There are no orders with this order Id and dealer id',
+                'debug_info': {
+                    'order_number': order_number,
+                    'requested_dealer_id': dealer_id,
+                    'available_dealer_ids': dealer_ids,
+                    'available_statuses': statuses,
+                    'total_products_with_order_number': all_order_products.count(),
+                    'is_ordered_count': all_order_products.filter(is_ordered=True).count()
+                }
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({'Unsuccessful': 'There are no orders with this order Id and dealer id'}, status=status.HTTP_404_NOT_FOUND)
 
 class AcceptedOrderViadealer(APIView):
     def get(self, request, dealer_id, order_number):
-        order_products = OrderProduct.objects.filter(dealer_id=dealer_id, order_number=order_number, is_ordered=True)
+        order_products = OrderProduct.objects.filter(
+            dealer_id=dealer_id, 
+            order_number=order_number, 
+            is_ordered=True
+        )
+        
         if order_products.exists():
             order_products.update(status='Accepted')
             try:
@@ -222,7 +257,22 @@ class AcceptedOrderViadealer(APIView):
             except Order.DoesNotExist:
                 pass
             return Response({'Accepted': 'The Order Is Accepted by the dealer'}, status=status.HTTP_202_ACCEPTED)
-        return Response({'Unsuccessful': 'There are no orders with this order Id and dealer id'}, status=status.HTTP_202_ACCEPTED)
+        
+        # Debug information to help identify the issue
+        all_order_products = OrderProduct.objects.filter(order_number=order_number)
+        if all_order_products.exists():
+            dealer_ids = list(all_order_products.values_list('dealer_id', flat=True).distinct())
+            return Response({
+                'Unsuccessful': 'There are no orders with this order Id and dealer id',
+                'debug_info': {
+                    'order_number': order_number,
+                    'requested_dealer_id': dealer_id,
+                    'available_dealer_ids': dealer_ids,
+                    'total_products_with_order_number': all_order_products.count()
+                }
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({'Unsuccessful': 'There are no orders with this order Id and dealer id'}, status=status.HTTP_404_NOT_FOUND)
 
 class GetAllOrdersCustomer(APIView):
     def get(self, request, customer_id):
@@ -271,7 +321,6 @@ class order_info(APIView):
         if serializer.is_valid(raise_exception=True):
             cart_order_id = serializer.validated_data["cart_order_id"]
             customer_id = serializer.validated_data["customer_id"]
-            dealer_id = serializer.validated_data["dealer_id"]
             first_name = serializer.validated_data["first_name"]
             last_name = serializer.validated_data["last_name"]
             phone = serializer.validated_data["phone"]
@@ -289,7 +338,6 @@ class order_info(APIView):
             save_object = Order(
                 cart_order_id=cart_order_id,
                 customer_id=customer_id,
-                dealer_id=dealer_id,
                 first_name=first_name,
                 last_name=last_name,
                 phone=phone,
@@ -334,11 +382,10 @@ class order_info(APIView):
     def delete(self, request,id,format=None):
         Order_info_object=Order.objects.get(id=id)
         customer_id=Order_info_object.customer_id
-        dealer_id= Order_info_object.dealer_id
         cart_order_id = Order_info_object.cart_order_id
         #Order_info_object.delete()
         Cart_Order.objects.filter(id=cart_order_id).delete()
-        CartItem.objects.filter(customer_id=customer_id,dealer_id=dealer_id,status='False').delete()
+        CartItem.objects.filter(customer_id=customer_id,status='False').delete()
         return Response({'msg':'all data related to order has been deleted','id':id})
     
 class order_confirm(APIView):

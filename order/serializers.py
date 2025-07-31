@@ -9,7 +9,7 @@ class TakeOrderDetailsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        exclude = ('status', 'is_ordered', 'created_at', 'updated_at', 'order_total', 'tax', 'ip')
+        exclude = ('dealer_id', 'status', 'is_ordered', 'created_at', 'updated_at', 'order_total', 'tax', 'ip')
 
 class OrderProductInitializationSerializer(serializers.ModelSerializer):
     # order_number = serializers.CharField(source = 'Order.order_number')
