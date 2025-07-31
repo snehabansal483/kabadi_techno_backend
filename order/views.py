@@ -14,29 +14,73 @@ class TakeOrderDetails(APIView):
     def post(self, request):
         serializer = TakeOrderDetailsSerializer(data = request.data)
         if serializer.is_valid(raise_exception = True):
-            Order = serializer.save()
-            Order.ip = request.META.get('REMOTE_ADDR')
-            yr = int(datetime.date.today().strftime('%Y'))
-            dt = int(datetime.date.today().strftime('%d'))
-            mt = int(datetime.date.today().strftime('%m'))
-            d = datetime.date(yr, mt, dt)
-            current_date = d.strftime("%Y%m%d")
-            order_id = str(Order.id)
-            if len(order_id) == 1:
-                order_number = current_date + 'KT00000' + str(order_id)
-            if len(order_id) == 2:
-                order_number = current_date + 'KT0000' + str(order_id)
-            if len(order_id) == 3:
-                order_number = current_date + 'KT000' + str(order_id)
-            if len(order_id) == 4:
-                order_number = current_date + 'KT00' + str(order_id)
-            if len(order_id) == 5:
-                order_number = current_date + 'KT0' + str(order_id)
-            if len(order_id) == 6:
-                order_number = current_date + 'KT' + str(order_id)
-            Order.order_number = order_number
-            Order.save()
-            return Response(serializer.data)
+            # Get customer_id from the validated data
+            customer_id = serializer.validated_data.get('customer_id')
+            
+            if not customer_id:
+                return Response({'error': 'Customer ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Find active cart items for this customer grouped by dealer
+            cart_items = CartItem.objects.filter(customer_id=customer_id, is_active=True)
+            
+            if not cart_items.exists():
+                return Response({'error': 'No active cart items found for this customer'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Group cart items by dealer_id
+            dealers_items = {}
+            for item in cart_items:
+                dealer_id = item.dealer_id
+                if dealer_id not in dealers_items:
+                    dealers_items[dealer_id] = []
+                dealers_items[dealer_id].append(item)
+            
+            created_orders = []
+            
+            # Create separate orders for each dealer
+            for dealer_id, dealer_items in dealers_items.items():
+                # Create order for this dealer
+                order_data = serializer.validated_data.copy()
+                order_data['dealer_id'] = dealer_id
+                
+                # Create the order instance
+                Order = serializer.create(order_data)
+                Order.ip = request.META.get('REMOTE_ADDR')
+                Order.dealer_id = dealer_id
+                
+                # Generate order number
+                yr = int(datetime.date.today().strftime('%Y'))
+                dt = int(datetime.date.today().strftime('%d'))
+                mt = int(datetime.date.today().strftime('%m'))
+                d = datetime.date(yr, mt, dt)
+                current_date = d.strftime("%Y%m%d")
+                order_id = str(Order.id)
+                if len(order_id) == 1:
+                    order_number = current_date + 'KT00000' + str(order_id)
+                elif len(order_id) == 2:
+                    order_number = current_date + 'KT0000' + str(order_id)
+                elif len(order_id) == 3:
+                    order_number = current_date + 'KT000' + str(order_id)
+                elif len(order_id) == 4:
+                    order_number = current_date + 'KT00' + str(order_id)
+                elif len(order_id) == 5:
+                    order_number = current_date + 'KT0' + str(order_id)
+                elif len(order_id) == 6:
+                    order_number = current_date + 'KT' + str(order_id)
+                
+                Order.order_number = order_number
+                Order.save()
+                
+                created_orders.append({
+                    'order_id': Order.id,
+                    'order_number': order_number,
+                    'dealer_id': dealer_id,
+                    'items_count': len(dealer_items)
+                })
+            
+            return Response({
+                'msg': f'Created {len(created_orders)} orders for {len(dealers_items)} dealers',
+                'orders': created_orders
+            })
 class UpdateOrderDetails(APIView):
     def patch(self, request, id):
         try:
@@ -72,10 +116,17 @@ class OrderProductInitialization(APIView):
                 # Fetch the order instance
                 order = Order.objects.get(id=order_id, is_ordered=False, order_number=order_number)
                 customer = order.customer_id  # This is a CustomerProfile instance
-                cart_items = CartItem.objects.filter(customer_id=customer, is_active=True)
+                dealer_id = order.dealer_id   # Get the specific dealer for this order
+                
+                # Filter cart items by both customer and dealer for this specific order
+                cart_items = CartItem.objects.filter(
+                    customer_id=customer, 
+                    dealer_id=dealer_id,  # Only items from this specific dealer
+                    is_active=True
+                )
 
                 if not cart_items.exists():
-                    return Response({'error': 'No active cart items found for this customer'}, status=status.HTTP_404_NOT_FOUND)
+                    return Response({'error': f'No active cart items found for this customer and dealer {dealer_id}'}, status=status.HTTP_404_NOT_FOUND)
 
                 for cart_item in cart_items:
                     if not OrderProduct.objects.filter(order=order, cart_item=cart_item).exists():
@@ -91,7 +142,7 @@ class OrderProductInitialization(APIView):
                             order_product.dealer_id = cart_item.dealer_id
                             order_product.save()
 
-                # Mark cart items as inactive after successful order creation
+                # Mark only the cart items for this dealer as inactive
                 cart_items.update(is_active=False)
 
                 # ✅ Mark the main order as ordered
@@ -101,7 +152,9 @@ class OrderProductInitialization(APIView):
                 return Response({
                     'msg': 'Order initialized successfully',
                     'order_id': order.id,
-                    'order_number': order.order_number
+                    'order_number': order.order_number,
+                    'dealer_id': dealer_id,
+                    'items_processed': cart_items.count()
                 })
 
             except Order.DoesNotExist:
@@ -335,41 +388,66 @@ class order_info(APIView):
             order_note = serializer.validated_data["order_note"]
             ip = request.META.get("REMOTE_ADDR")
 
-            save_object = Order(
-                cart_order_id=cart_order_id,
-                customer_id=customer_id,
-                first_name=first_name,
-                last_name=last_name,
-                phone=phone,
-                email=email,
-                address_line_1=address_line_1,
-                address_line_2=address_line_2,
-                city=city,
-                state=state,
-                country=country,
-                pickup_date=pickup_date,
-                pickup_time=pickup_time,
-                order_note=order_note,
-                ip=ip,
-            )
+            # Get cart items grouped by dealer_id
+            cart_items = CartItem.objects.filter(customer_id=customer_id, is_active=True)
+            
+            if not cart_items.exists():
+                return Response({'error': 'No active cart items found for this customer'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Group cart items by dealer_id
+            dealers_items = {}
+            for item in cart_items:
+                dealer_id = item.dealer_id
+                if dealer_id not in dealers_items:
+                    dealers_items[dealer_id] = []
+                dealers_items[dealer_id].append(item)
+            
+            created_orders = []
+            
+            # Create separate orders for each dealer
+            for dealer_id, dealer_items in dealers_items.items():
+                save_object = Order(
+                    cart_order_id=cart_order_id,
+                    customer_id=customer_id,
+                    dealer_id=dealer_id,  # Set specific dealer_id for this order
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone=phone,
+                    email=email,
+                    address_line_1=address_line_1,
+                    address_line_2=address_line_2,
+                    city=city,
+                    state=state,
+                    country=country,
+                    pickup_date=pickup_date,
+                    pickup_time=pickup_time,
+                    order_note=order_note,
+                    ip=ip,
+                )
 
-            save_object.save()
+                save_object.save()
 
-            # Generate order_number
-            import datetime
-            today = datetime.date.today()
-            current_date = today.strftime("%Y%m%d")
-            order_id = str(save_object.id)
-            padding = "KT" + "0" * (6 - len(order_id))
-            order_number = f"{current_date}{padding}{order_id}"
+                # Generate order_number
+                import datetime
+                today = datetime.date.today()
+                current_date = today.strftime("%Y%m%d")
+                order_id = str(save_object.id)
+                padding = "KT" + "0" * (6 - len(order_id))
+                order_number = f"{current_date}{padding}{order_id}"
 
-            save_object.order_number = order_number
-            save_object.save()
+                save_object.order_number = order_number
+                save_object.save()
+                
+                created_orders.append({
+                    'order_id': save_object.id,
+                    'order_number': order_number,
+                    'dealer_id': dealer_id,
+                    'items_count': len(dealer_items)
+                })
 
             return Response({
-                'msg': 'order info has been added',
-                'order_info_id': save_object.id,
-                'order_number': order_number
+                'msg': f'Created {len(created_orders)} orders for {len(dealers_items)} dealers',
+                'orders': created_orders
             })
 
     def patch(self, request,id,format=None):
@@ -382,10 +460,15 @@ class order_info(APIView):
     def delete(self, request,id,format=None):
         Order_info_object=Order.objects.get(id=id)
         customer_id=Order_info_object.customer_id
+        dealer_id=Order_info_object.dealer_id  # Now we have dealer_id populated
         cart_order_id = Order_info_object.cart_order_id
         #Order_info_object.delete()
         Cart_Order.objects.filter(id=cart_order_id).delete()
-        CartItem.objects.filter(customer_id=customer_id,status='False').delete()
+        # Use both customer_id and dealer_id for more precise deletion
+        if dealer_id:
+            CartItem.objects.filter(customer_id=customer_id,dealer_id=dealer_id,status='False').delete()
+        else:
+            CartItem.objects.filter(customer_id=customer_id,status='False').delete()
         return Response({'msg':'all data related to order has been deleted','id':id})
     
 class order_confirm(APIView):
