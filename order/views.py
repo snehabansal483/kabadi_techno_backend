@@ -141,6 +141,9 @@ class OrderProductInitialization(APIView):
                             order_product.dealer_id = cart_item.dealer_id
                             order_product.save()
 
+                # Get the count BEFORE marking items as inactive
+                items_processed_count = cart_items.count()
+
                 # Mark only the cart items for this dealer as inactive
                 cart_items.update(is_active=False)
 
@@ -153,7 +156,7 @@ class OrderProductInitialization(APIView):
                     'order_id': order.id,
                     'order_number': order.order_number,
                     'dealer_id': dealer_id,
-                    'items_processed': cart_items.count()
+                    'items_processed': items_processed_count
                 })
 
             except Order.DoesNotExist:

@@ -43,18 +43,13 @@ class AddToCartSerializer(serializers.ModelSerializer):
         fields = ('customer', 'price_list')
 
 
-class DecreaseQuantitySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CartItem
-        fields = ('customer', 'price_list')
+class DecreaseQuantitySerializer(serializers.Serializer):
+    id = serializers.IntegerField()
 
 
-class AddQuantitySerializer(serializers.ModelSerializer):
+class AddQuantitySerializer(serializers.Serializer):
+    id = serializers.IntegerField()
     quantity = serializers.IntegerField()
-
-    class Meta:
-        model = CartItem
-        fields = ('customer', 'price_list', 'quantity')
 
 
 class RemoveItemSerializer(serializers.ModelSerializer):

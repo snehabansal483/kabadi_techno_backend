@@ -59,25 +59,34 @@ class AddToCart(APIView):
 
 class DecreaseQuantity(APIView):
     serializer_class = DecreaseQuantitySerializer
+    
     def post(self, request):
         serializer = DecreaseQuantitySerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            price_list_id = request.data['price_list']
-            customer_id = request.data['customer']
-            customer = Customer.objects.get(id = customer_id)
-            price_list = PriceList.objects.get(id = price_list_id)
-            # is_cart_item_exists = CartItem.objects.filter(price_list = price_list, customer = customer).exists()
-            if CartItem.objects.filter(price_list = price_list, customer = customer).exists():
-                cart_item = CartItem.objects.get(price_list = price_list, customer = customer)
+            cart_item_id = request.data['id']
+            
+            try:
+                cart_item = CartItem.objects.get(id=cart_item_id)
+                
                 if cart_item.quantity > 1:
                     cart_item.quantity -= 1
                     cart_item.save()
-                    return Response(serializer.data)
+                    return Response({
+                        'msg': 'Quantity decreased',
+                        'cart_item_id': cart_item.id,
+                        'new_quantity': cart_item.quantity
+                    }, status=status.HTTP_200_OK)
                 else:
                     cart_item.delete()
-                    return Response({'successful': 'Item Removed From Your Cart'}, status=status.HTTP_202_ACCEPTED)
-            else:
-                return Response({'unsuccessful': 'Cart Item Not Found'}, status=status.HTTP_404_NOT_FOUND)
+                    return Response({
+                        'msg': 'Item removed from cart',
+                        'cart_item_id': cart_item_id
+                    }, status=status.HTTP_200_OK)
+                    
+            except CartItem.DoesNotExist:
+                return Response({
+                    'error': 'Cart item not found'
+                }, status=status.HTTP_404_NOT_FOUND)
         
 class AddQuantity(APIView):
     serializer_class = AddQuantitySerializer
@@ -85,36 +94,24 @@ class AddQuantity(APIView):
     def post(self, request):
         serializer = AddQuantitySerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            price_list_id = request.data['price_list']
-            customer_id = request.data['customer']
-            addquantity = int(request.data['quantity'])
+            cart_item_id = request.data['id']
+            add_quantity = int(request.data['quantity'])
 
-            customer = Customer.objects.get(id=customer_id)
-            price_list = PriceList.objects.get(id=price_list_id)
-
-            if CartItem.objects.filter(price_list=price_list, customer=customer).exists():
-                cart_item = CartItem.objects.get(price_list=price_list, customer=customer)
-                cart_item.quantity += addquantity
+            try:
+                cart_item = CartItem.objects.get(id=cart_item_id)
+                cart_item.quantity += add_quantity
                 cart_item.save()
-            else:
-                # Autofill CartItem fields from PriceList
-                cart_item = CartItem.objects.create(
-                    price_list=price_list,
-                    quantity=addquantity,
-                    customer=customer,
-                    customer_name=customer.auth_id.username,
-                    dealer_id=price_list.dealer.id,
-                    subcategory_name=price_list.subcategory.sub_name,
-                    subcategory_image=price_list.subcategory.sub_image,
-                    GST=price_list.GST,
-                    percentage=price_list.percentage,
-                    unit=price_list.unit,
-                    price=price_list.price,
-                )
-                cart_item.save()
+                
+                return Response({
+                    'msg': 'Quantity added successfully',
+                    'cart_item_id': cart_item.id,
+                    'new_quantity': cart_item.quantity
+                }, status=status.HTTP_200_OK)
 
-            return Response({'msg': 'Quantity added/updated successfully', 'cart_item_id': cart_item.id})
-
+            except CartItem.DoesNotExist:
+                return Response({
+                    'error': 'Cart item not found'
+                }, status=status.HTTP_404_NOT_FOUND)
 class RemoveItem(APIView):
     serializer_class = RemoveItemSerializer
     def post(self, request):
