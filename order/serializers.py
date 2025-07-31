@@ -35,7 +35,7 @@ class ViewOrderSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = OrderProduct
-        fields = ('order', 'subcategory_name', 'unit', 'quantity', 'price', 'subtotal', 'taxes', 'percentage')
+        fields = ('order', 'subcategory_name', 'unit', 'quantity', 'price', 'subtotal', 'taxes', 'percentage','status')
 
 class CancelOrderViaCustomerSerializer(serializers.ModelSerializer):
     class Meta:

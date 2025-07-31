@@ -234,39 +234,47 @@ class DeleteCartItem(APIView):
             return Response({'error': 'Cart item not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class add_order(APIView):
-    serializer_class=add_order_serializer
+    serializer_class = add_order_serializer
 
-    def get(self,request,id=None,format=None):
+    def get(self, request, id=None, format=None):
         if id is not None:
             try:
                 object = Cart_Order.objects.get(id=id)
             except Cart_Order.DoesNotExist:
                 return Response({'error': 'Cart_Order with given ID not found'}, status=404)
+
             fields_with_null_or_blank = []
-            fields_with_value=[]
-            cart_details={}
-            exempt=['order_info','id','customer_id','dealer_id','status']
-            print(object._meta.get_fields(),"\n\nobjectmeta fields\n\n")
+            fields_with_value = []
+            cart_details = {}
+            exempt = ['order_info', 'id', 'customer_id', 'dealer_id', 'status']
+
             for field in object._meta.get_fields():
-                if field.name in exempt :
-                    pass
+                if field.name in exempt or not hasattr(object, field.name):
+                    continue
+
+                field_value = getattr(object, field.name)
+                if field_value is None or field_value == '':
+                    fields_with_null_or_blank.append(field.name)
                 else:
-                    field_value = getattr(object, field.name)
-                    if field_value is None or field_value == '':
-                        fields_with_null_or_blank.append(field.name)
-                    else:
-                        fields_with_value.append((field.name,str(field_value)))
-            print(fields_with_null_or_blank,"\n\nfields with  null or blank value")
-            print(fields_with_value,"\n\nfields with value\n\n")
-            for i in fields_with_value:
-                #cart_item = 1
-                item_object = CartItem.objects.get(id=i[1])
-                serializer = add_cart_item_serializer(item_object)
-                cart_details[i[0]]=[serializer.data]
-            return Response({"cart details":cart_details,"cart_order_id":object.id,"no_of_items":len(fields_with_value)})
+                    try:
+                        # Ensure value is a CartItem FK and valid integer
+                        cart_item = CartItem.objects.get(id=field_value.id if hasattr(field_value, 'id') else field_value)
+                        serializer = add_cart_item_serializer(cart_item)
+                        cart_details[field.name] = [serializer.data]
+                        fields_with_value.append(field.name)
+                    except Exception as e:
+                        print(f"Error processing field {field.name}: {e}")
+                        continue
+
+            return Response({
+                "cart details": cart_details,
+                "cart_order_id": object.id,
+                "no_of_items": len(fields_with_value)
+            })
+
         else:
-            objects=Cart_Order.objects.all()
-            serializer = get_order_serializer(objects,many=True)
+            objects = Cart_Order.objects.all()
+            serializer = get_order_serializer(objects, many=True)
             return Response(serializer.data)
 
 

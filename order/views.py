@@ -105,88 +105,122 @@ class OrderProductInitialization(APIView):
 
 class ViewOrder(APIView):
     def get(self, request, customer_id, order):
-        order_total = 0
-        tax = 0
-        total = 0
-        quantity = 0
-        percentage_amt = 0
         try:
-            order_products = OrderProduct.objects.filter(customer_id = customer_id, is_ordered = False)
+            # Get order instance
+            ordeR = Order.objects.get(id=order, customer_id=customer_id)
+
+            # Fetch order products related to this order and exclude cancelled ones
+            order_products = OrderProduct.objects.filter(
+                customer_id=customer_id,
+                order=ordeR,
+                is_ordered=True
+            )
+
+            if not order_products.exists():
+                return Response({'Empty': 'The Order Is Empty'}, status=status.HTTP_204_NO_CONTENT)
+
+            total = 0
+            tax = 0
+            quantity = 0
+            percentage_amt = 0
+
             for order_product in order_products:
-                total += (order_product.price * order_product.quantity)
-                tax += (order_product.price * order_product.quantity * order_product.GST / 100)
-                quantity += order_product.quantity
-                percentage_amt += (order_product.price * order_product.quantity * order_product.percentage / 100)
+                if order_product.status not in ['Cancelled by Customer', 'Cancelled by dealer']:
+                    subtotal = order_product.price * order_product.quantity
+                    gst_amount = subtotal * (order_product.GST / 100)
+                    percentage_amount = subtotal * (order_product.percentage / 100)
 
+                    total += subtotal
+                    tax += gst_amount
+                    quantity += order_product.quantity
+                    percentage_amt += percentage_amount
 
-            order_total = total + tax + percentage_amt
-            order_total = round(order_total, 2)
-            ordeR = Order.objects.get(id = order, customer_id = customer_id)
-            ordeR.tax = tax
+            order_total = round(total + tax + percentage_amt, 2)
+
+            # Update order totals
+            ordeR.tax = round(tax, 2)
             ordeR.order_total = order_total
             ordeR.save()
-            full_address = ordeR.full_address()
-            full_name = ordeR.full_name()
+
             context = {
-            'order_number': ordeR.order_number,
-            # 'full_name': full_name,
-            'full_name': full_name,
-            'phone' : ordeR.phone,
-            'email' : ordeR.email,
-            'full_address': full_address,
-            'city' : ordeR.city,
-            'state' : ordeR.state,
-            'country' : ordeR.country,
-            'order_note': ordeR.order_note,
-            'total': total,
-            'tax': ordeR.tax,
-            'percentage_amt': percentage_amt,
-            'order_total': ordeR.order_total,
-            'pickup_date': ordeR.pickup_date,
-            'pickup_time': ordeR.pickup_time,
-            'ip': ordeR.ip,
+                'order_number': ordeR.order_number,
+                'full_name': ordeR.full_name(),
+                'phone': ordeR.phone,
+                'email': ordeR.email,
+                'full_address': ordeR.full_address(),
+                'city': ordeR.city,
+                'state': ordeR.state,
+                'country': ordeR.country,
+                'order_note': ordeR.order_note,
+                'total': round(total, 2),
+                'tax': round(tax, 2),
+                'percentage_amt': round(percentage_amt, 2),
+                'order_total': ordeR.order_total,
+                'pickup_date': ordeR.pickup_date,
+                'pickup_time': ordeR.pickup_time,
+                'ip': ordeR.ip,
+                'order_status': ordeR.status
             }
-            serializer = ViewOrderSerializer(order_products, many = True)
+
+            # Include item-level status in serializer (update if needed)
+            serializer = ViewOrderSerializer(order_products, many=True)
             new_serializer_data = list(serializer.data)
             new_serializer_data.append(context)
-            return Response(new_serializer_data)
+
+            return Response(new_serializer_data, status=status.HTTP_200_OK)
+
         except ObjectDoesNotExist:
             return Response({'Empty': 'The Order Is Empty'}, status=status.HTTP_204_NO_CONTENT)
 
 class CancelOrderViaCustomer(APIView):
-    # serializer_class = CancelOrderViaCustomerSerializer
     def get(self, request, customer_id, order_number):
-        # serializer = CancelOrderViaCustomerSerializer(data=request.data)
-        # if serializer.is_valid(raise_exception=True):
-        if OrderProduct.objects.filter(customer_id = customer_id, order_number = order_number, is_ordered = True).exists():
-            orderproduct = OrderProduct.objects.get(customer_id = customer_id, order_number = order_number, is_ordered = True)
-            orderproduct.status = 'Cancelled by Customer'
-            orderproduct.save()
-            return Response({'Cancelled': 'The Order Is Cancelled by the Customer'}, status=status.HTTP_202_ACCEPTED)
-        return Response({'Unsuccessful': 'There are no orders active with this order Id and customer id'}, status=status.HTTP_202_ACCEPTED)
+        # Find all ordered products matching customer and order number
+        order_products = OrderProduct.objects.filter(
+            customer_id=customer_id,
+            order_number=order_number,
+            is_ordered=True
+        )
 
+        if order_products.exists():
+            # Update status for all items in this order
+            order_products.update(status='Cancelled by Customer')
+            
+            # Optionally, update the Order model as well (if status is stored there)
+            try:
+                order = Order.objects.get(customer_id=customer_id, order_number=order_number)
+                order.status = 'Cancelled by Customer'
+                order.save()
+            except Order.DoesNotExist:
+                pass  # skip if not present, or log warning
+            
+            return Response({'Cancelled': 'The Order is Cancelled by the Customer'}, status=status.HTTP_202_ACCEPTED)
+
+        return Response({'Unsuccessful': 'There are no active orders with this order ID and customer ID'}, status=status.HTTP_202_ACCEPTED)
 class CancelOrderViadealer(APIView):
-    # serializer_class = CancelOrderViadealerSerializer
     def get(self, request, dealer_id, order_number):
-        # serializer = CancelOrderViadealerSerializer(data=request.data)
-        # if serializer.is_valid(raise_exception=True):
-        if OrderProduct.objects.filter(dealer_id = dealer_id, order_number = order_number, is_ordered = True).exists():
-            orderproduct = OrderProduct.objects.get(dealer_id = dealer_id, order_number = order_number, is_ordered = True)
-            orderproduct.status = 'Cancelled by dealer'
-            orderproduct.save()
+        order_products = OrderProduct.objects.filter(dealer_id=dealer_id, order_number=order_number, is_ordered=True)
+        if order_products.exists():
+            order_products.update(status='Cancelled by dealer')
+            try:
+                order = Order.objects.get(order_number=order_number)
+                order.status = 'Cancelled'
+                order.save()
+            except Order.DoesNotExist:
+                pass
             return Response({'Cancelled': 'The Order Is Cancelled by the dealer'}, status=status.HTTP_202_ACCEPTED)
         return Response({'Unsuccessful': 'There are no orders with this order Id and dealer id'}, status=status.HTTP_202_ACCEPTED)
 
 class AcceptedOrderViadealer(APIView):
-    # serializer_class = AcceptedOrderViadealerSerializer
     def get(self, request, dealer_id, order_number):
-        # serializer = AcceptedOrderViadealerSerializer(data=request.data)
-        # if serializer.is_valid(raise_exception=True):
-        if OrderProduct.objects.filter(dealer_id = dealer_id, order_number = order_number, is_ordered = True).exists():
-            orderproduct = OrderProduct.objects.get(dealer_id = dealer_id, order_number = order_number, is_ordered = True)
-            orderproduct.status = 'Accepted'
-            print(orderproduct.status)
-            orderproduct.save()
+        order_products = OrderProduct.objects.filter(dealer_id=dealer_id, order_number=order_number, is_ordered=True)
+        if order_products.exists():
+            order_products.update(status='Accepted')
+            try:
+                order = Order.objects.get(order_number=order_number)
+                order.status = 'Confirmed'
+                order.save()
+            except Order.DoesNotExist:
+                pass
             return Response({'Accepted': 'The Order Is Accepted by the dealer'}, status=status.HTTP_202_ACCEPTED)
         return Response({'Unsuccessful': 'There are no orders with this order Id and dealer id'}, status=status.HTTP_202_ACCEPTED)
 
