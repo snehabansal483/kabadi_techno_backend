@@ -6,6 +6,8 @@ from rest_framework import serializers
 
 class TakeOrderDetailsSerializer(serializers.ModelSerializer):
     order_number = serializers.CharField(read_only=True)
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Order

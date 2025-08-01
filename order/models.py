@@ -104,6 +104,16 @@ class OrderProduct(models.Model):
         if self.order:
             self.order_number = self.order.order_number
 
+        # Calculate total_amount for this order product
+        if self.quantity and self.price:
+            subtotal = self.quantity * self.price
+            tax_amount = subtotal * (self.GST / 100)
+            percentage_amount = subtotal * (self.percentage / 100)
+            self.total_amount = subtotal + tax_amount + percentage_amount
+        
+        # Calculate total_cart_items (number of items in this order product)
+        self.total_cart_items = self.quantity if self.quantity else 0
+
         super(OrderProduct, self).save(*args, **kwargs)
 
     

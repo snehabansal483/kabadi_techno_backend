@@ -43,7 +43,11 @@ class CartItem(models.Model):
         if self.is_active is None:
             self.is_active = True
         if self.customer and hasattr(self.customer, 'auth_id'):
-            self.customer_name = self.customer.auth_id.username
+            # Use full_name first, fall back to email if full_name is not available
+            customer_name = getattr(self.customer.auth_id, 'full_name', None)
+            if not customer_name:
+                customer_name = getattr(self.customer.auth_id, 'email', None)
+            self.customer_name = customer_name
         if self.price_list:
             self.subcategory_name = self.price_list.subcategory_name
             self.subcategory_image = self.price_list.subcategory_image

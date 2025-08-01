@@ -24,10 +24,14 @@ class add_cart_item_serializer(serializers.ModelSerializer):
             validated_data['price'] = price_list.price
             validated_data['dealer'] = price_list.dealer
 
-        # customer_name (from customer.auth_id.username)
+        # customer_name (from customer.auth_id.full_name or email)
         customer = validated_data.get('customer')
         if customer and hasattr(customer, 'auth_id'):
-            validated_data['customer_name'] = customer.auth_id.username
+            # Use full_name first, fall back to email if full_name is not available
+            customer_name = getattr(customer.auth_id, 'full_name', None)
+            if not customer_name:
+                customer_name = getattr(customer.auth_id, 'email', None)
+            validated_data['customer_name'] = customer_name
 
         return super().create(validated_data)
 

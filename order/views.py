@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework import generics, status, views, permissions 
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from carts.models import Cart_Order
+from carts.models import Cart_Order, CartItem
 from .serializers import *
 from django.core.exceptions import ObjectDoesNotExist
 ###
@@ -37,9 +37,36 @@ class TakeOrderDetails(APIView):
             
             # Create separate orders for each dealer
             for dealer_id, dealer_items in dealers_items.items():
+                # Get customer name from any cart item (they all belong to the same customer)
+                customer_name = dealer_items[0].customer_name if dealer_items else "Unknown Customer"
+                
+                # Split customer name into first and last name
+                name_parts = customer_name.split(' ', 1) if customer_name else ['', '']
+                first_name = name_parts[0] if len(name_parts) > 0 else ''
+                last_name = name_parts[1] if len(name_parts) > 1 else ''
+                
+                # Get or create Cart_Order for this dealer and customer
+                try:
+                    cart_order = Cart_Order.objects.get(
+                        customer_id=customer_id,
+                        dealer_id=dealer_id,
+                        status="False"
+                    )
+                except Cart_Order.DoesNotExist:
+                    cart_order = Cart_Order.objects.create(
+                        customer_id=customer_id,
+                        dealer_id=dealer_id,
+                        status="False"
+                    )
+                
                 # Create order for this dealer
                 order_data = serializer.validated_data.copy()
                 order_data['dealer_id'] = dealer_id
+                order_data['cart_order_id'] = cart_order.id
+                
+                # Override first_name and last_name with values from cart items
+                order_data['first_name'] = first_name
+                order_data['last_name'] = last_name
                 
                 # Create the order instance
                 Order = serializer.create(order_data)
