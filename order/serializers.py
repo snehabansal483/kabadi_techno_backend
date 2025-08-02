@@ -58,6 +58,7 @@ class GetAllOrdersCustomerSerializer(serializers.ModelSerializer):
     subcategory_name = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
     total_cart_items = serializers.SerializerMethodField()
+    order_total = serializers.SerializerMethodField()
     
     def get_subcategory_name(self, obj):
         """Get all subcategory names from related order products"""
@@ -74,11 +75,87 @@ class GetAllOrdersCustomerSerializer(serializers.ModelSerializer):
         order_products = OrderProduct.objects.filter(order=obj, is_ordered=True)
         return sum(op.total_cart_items for op in order_products)
     
+    def get_order_total(self, obj):
+        """Calculate total order amount from all order products"""
+        order_products = OrderProduct.objects.filter(order=obj, is_ordered=True)
+        total = 0
+        for op in order_products:
+            # Calculate subtotal for each product
+            subtotal = op.quantity * op.price
+            # Add GST
+            gst_amount = subtotal * (op.GST / 100)
+            # Add percentage
+            percentage_amount = subtotal * (op.percentage / 100)
+            # Add to total
+            total += subtotal + gst_amount + percentage_amount
+        return round(total, 2)
+    
     class Meta:
         model = Order
         fields = '__all__'
 
 class GetAllOrdersdealerSerializer(serializers.ModelSerializer):
+    subcategory_names = serializers.SerializerMethodField()
+    prices = serializers.SerializerMethodField()
+    quantities = serializers.SerializerMethodField()
+    total_cart_items = serializers.SerializerMethodField()
+    order_total = serializers.SerializerMethodField()
+    
+    def get_subcategory_names(self, obj):
+        """Get all subcategory names for the same order_number"""
+        order_products = OrderProduct.objects.filter(
+            order_number=obj.order_number, 
+            dealer_id=obj.dealer_id,
+            is_ordered=True
+        )
+        return [op.subcategory_name for op in order_products]
+    
+    def get_prices(self, obj):
+        """Get all prices for the same order_number"""
+        order_products = OrderProduct.objects.filter(
+            order_number=obj.order_number, 
+            dealer_id=obj.dealer_id,
+            is_ordered=True
+        )
+        return [op.price for op in order_products]
+    
+    def get_quantities(self, obj):
+        """Get all quantities for the same order_number"""
+        order_products = OrderProduct.objects.filter(
+            order_number=obj.order_number, 
+            dealer_id=obj.dealer_id,
+            is_ordered=True
+        )
+        return [op.quantity for op in order_products]
+    
+    def get_total_cart_items(self, obj):
+        """Get total cart items count for the same order_number"""
+        order_products = OrderProduct.objects.filter(
+            order_number=obj.order_number, 
+            dealer_id=obj.dealer_id,
+            is_ordered=True
+        )
+        return sum(op.total_cart_items for op in order_products)
+    
+    def get_order_total(self, obj):
+        """Calculate total order amount for the same order_number"""
+        order_products = OrderProduct.objects.filter(
+            order_number=obj.order_number, 
+            dealer_id=obj.dealer_id,
+            is_ordered=True
+        )
+        total = 0
+        for op in order_products:
+            # Calculate subtotal for each product
+            subtotal = op.quantity * op.price
+            # Add GST
+            gst_amount = subtotal * (op.GST / 100)
+            # Add percentage
+            percentage_amount = subtotal * (op.percentage / 100)
+            # Add to total
+            total += subtotal + gst_amount + percentage_amount
+        return round(total, 2)
+    
     class Meta:
         model = OrderProduct
         fields = '__all__'
