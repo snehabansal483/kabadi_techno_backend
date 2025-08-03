@@ -171,6 +171,13 @@ class GetMarketplace(APIView):
         response_data['days_remaining'] = current_subscription.days_remaining
         response_data['dealer_name'] = dealer.auth_id.full_name if dealer.auth_id else dealer.kt_id
         response_data['dealer_profile_type'] = dealer.profile_type
+        # Generate frontend URL same as in CreateMarketplace
+        current_site_frontend = 'http://localhost:5173'
+        frontend_url = f"{current_site_frontend}/marketplace/{marketplace.kt_id}"
+        response_data['frontend_url'] = frontend_url
+        
+        
+        return Response(response_data)
         
         return Response(response_data)
 
