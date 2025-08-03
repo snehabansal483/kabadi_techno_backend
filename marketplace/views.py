@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
+from django.shortcuts import render, get_object_or_404
+from django.utils import timezone
 from datetime import date
 from .serializers import *
 from .models import Marketplace
@@ -123,6 +125,7 @@ class CreateMarketplace(APIView):
                     'qr_code_url': qr_code_url,
                     'qr_code_path': qr_code_image_path,
                     'frontend_url': qr_url,
+                    'qr_display_url': f"{request.build_absolute_uri('/').rstrip('/')}/marketplace/qr-display/{marketplace.kt_id}/",
                     'subscription_expires': current_subscription.end_date
                 }, status=status.HTTP_202_ACCEPTED)
             
@@ -213,3 +216,36 @@ class ListActiveMarketplaces(APIView):
             'count': len(marketplace_data),
             'marketplaces': marketplace_data
         })
+
+
+def marketplace_qr_display(request, kt_id):
+    """Display QR code in a beautiful template with Kabadi Techno branding"""
+    
+    # Get marketplace
+    marketplace = get_object_or_404(Marketplace, kt_id=kt_id)
+    
+    # Get dealer information
+    dealer = marketplace.dealer_id
+    dealer_name = dealer.auth_id.full_name if dealer.auth_id else dealer.kt_id
+    
+    # Get subscription information
+    from payment_gateway.models import DealerSubscription
+    subscription = DealerSubscription.objects.filter(
+        dealer=dealer,
+        status='active'
+    ).first()
+    
+    # Calculate days remaining
+    days_remaining = 0
+    if subscription and subscription.is_active:
+        days_remaining = subscription.days_remaining
+    
+    context = {
+        'marketplace': marketplace,
+        'dealer_name': dealer_name,
+        'subscription': subscription,
+        'days_remaining': days_remaining,
+        'current_date': timezone.now(),
+    }
+    
+    return render(request, 'marketplace/qr_display.html', context)
