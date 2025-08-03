@@ -17,6 +17,8 @@ class PriceListAdmin(admin.ModelAdmin):
     filter_horizontal = ()
     list_filter = ()
     fieldsets = ()
+
+admin.site.register(PriceList, PriceListAdmin)    
     
 @admin_thumbnails.thumbnail('category_image')
 class add_categoryAdmin(admin.ModelAdmin):

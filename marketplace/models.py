@@ -12,7 +12,7 @@ class Marketplace(models.Model):
     dealer_id = models.ForeignKey(DealerProfile, on_delete=models.CASCADE, null=True)
     kt_id = models.CharField(max_length=100, null = True)
     url = models.CharField(max_length=240, null=True, blank=True)
-    qrCode = models.ImageField(default = 'cvm_qrcodes/4.jpg', upload_to='marketplace/QRs')
+    qrCode = models.ImageField(upload_to='marketplace/QRs', null=True, blank=True)
     end_duration = models.DateField(null = True)
     duration_active = models.IntegerField(null=True, blank=True)
     status = models.CharField(max_length=50, choices=status_choice, default='deactive')

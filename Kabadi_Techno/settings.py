@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'homepage',
     'invoice',
     'postalpin',
+    'payment_gateway'
  
 ]
 

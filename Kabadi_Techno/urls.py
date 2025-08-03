@@ -35,6 +35,7 @@ urlpatterns = [
     path('homepage/', include('homepage.urls')),
     path('invoice/', include('invoice.urls')),
     path('postalpin/', include('postalpin.urls')),
+    path('api/payment/', include('payment_gateway.urls')),
 
 ]+ static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
