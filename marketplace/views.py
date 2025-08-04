@@ -175,10 +175,8 @@ class GetMarketplace(APIView):
         current_site_frontend = 'http://localhost:5173'
         frontend_url = f"{current_site_frontend}/marketplace/{marketplace.kt_id}"
         response_data['frontend_url'] = frontend_url
-        
-        
-        return Response(response_data)
-        
+        response_data['qr_display_url'] = f"{request.build_absolute_uri('/').rstrip('/')}/marketplace/qr-display/{marketplace.kt_id}/"
+
         return Response(response_data)
 
 

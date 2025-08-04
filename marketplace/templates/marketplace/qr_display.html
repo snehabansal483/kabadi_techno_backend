@@ -187,6 +187,41 @@
             color: white;
         }
         
+        .download-btn {
+            background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+            margin: 20px 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+            background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);
+        }
+        
+        .download-btn:active {
+            transform: translateY(0);
+        }
+        
+        .download-icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+        
         @media (max-width: 600px) {
             .container {
                 margin: 10px;
@@ -238,6 +273,14 @@
                     <img src="{{ marketplace.qrCode.url }}" alt="QR Code for {{ marketplace.kt_id }}">
                 </div>
             </div>
+            
+            <!-- Download Button -->
+            <button class="download-btn" onclick="downloadCard()">
+                <svg class="download-icon" viewBox="0 0 24 24">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                Download QR
+            </button>
         </div>
         
         <!-- Footer -->
@@ -249,5 +292,79 @@
             <div>Marketplace QR Code - Generated on {{ current_date|date:"M d, Y" }}</div>
         </div>
     </div>
+    
+    <!-- HTML2Canvas Library -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    
+    <script>
+        function downloadCard() {
+            const button = document.querySelector('.download-btn');
+            const originalText = button.innerHTML;
+            
+            // Show loading state
+            button.innerHTML = `
+                <svg class="download-icon" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <path d="M8 12l2 2 4-4" stroke="currentColor" stroke-width="2" fill="none"/>
+                </svg>
+                Generating...
+            `;
+            button.disabled = true;
+            
+            // Get the container element
+            const container = document.querySelector('.container');
+            
+            // Configure html2canvas options
+            const options = {
+                allowTaint: true,
+                useCORS: true,
+                scale: 2, // Higher quality
+                backgroundColor: '#ffffff',
+                width: container.offsetWidth,
+                height: container.offsetHeight,
+                scrollX: 0,
+                scrollY: 0
+            };
+            
+            // Generate canvas
+            html2canvas(container, options).then(canvas => {
+                // Create download link
+                const link = document.createElement('a');
+                link.download = `kabadi-techno-qr-card-{{ marketplace.kt_id }}.png`;
+                link.href = canvas.toDataURL('image/png', 1.0);
+                
+                // Trigger download
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Reset button
+                button.innerHTML = originalText;
+                button.disabled = false;
+                
+                // Show success message briefly
+                button.innerHTML = `
+                    <svg class="download-icon" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                    Downloaded!
+                `;
+                
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                }, 2000);
+                
+            }).catch(error => {
+                console.error('Error generating image:', error);
+                
+                // Reset button on error
+                button.innerHTML = originalText;
+                button.disabled = false;
+                
+                // Show error message
+                alert('Error generating download. Please try again.');
+            });
+        }
+    </script>
 </body>
 </html>
