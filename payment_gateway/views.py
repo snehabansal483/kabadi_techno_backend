@@ -19,13 +19,92 @@ from .serializers import (
 
 # Create your views here.
 
+def check_trial_eligibility(dealer):
+    """
+    Check if a dealer is eligible for free trial
+    Returns True if eligible, False if already used
+    """
+    previous_trial = DealerSubscription.objects.filter(
+        dealer=dealer,
+        plan__plan_type='trial'
+    ).first()
+    return not bool(previous_trial)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_trial_eligibility_view(request):
+    """API endpoint to check if current dealer is eligible for free trial"""
+    try:
+        dealer = DealerProfile.objects.get(auth_id=request.user)
+        is_eligible = check_trial_eligibility(dealer)
+        
+        response_data = {
+            'trial_eligible': is_eligible,
+            'message': 'You are eligible for free trial' if is_eligible else 'You have already used your one-time free trial'
+        }
+        
+        if not is_eligible:
+            # Get the previous trial subscription details
+            previous_trial = DealerSubscription.objects.filter(
+                dealer=dealer,
+                plan__plan_type='trial'
+            ).first()
+            if previous_trial:
+                response_data['previous_trial'] = {
+                    'start_date': previous_trial.start_date,
+                    'end_date': previous_trial.end_date,
+                    'status': previous_trial.status
+                }
+        
+        return Response(response_data)
+        
+    except DealerProfile.DoesNotExist:
+        return Response(
+            {'error': 'Dealer profile not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
 class SubscriptionPlanListView(APIView):
     """API view to list all available subscription plans"""
     
     def get(self, request):
         plans = SubscriptionPlan.objects.filter(is_active=True)
         serializer = SubscriptionPlanSerializer(plans, many=True)
-        return Response(serializer.data)
+        
+        # If user is authenticated, check if they've used trial before
+        response_data = serializer.data
+        if request.user.is_authenticated:
+            try:
+                dealer = DealerProfile.objects.get(auth_id=request.user)
+                previous_trial = DealerSubscription.objects.filter(
+                    dealer=dealer,
+                    plan__plan_type='trial'
+                ).first()
+                
+                # Add flag to indicate if trial was already used
+                for plan in response_data:
+                    if plan.get('plan_type') == 'trial':
+                        plan['trial_already_used'] = bool(previous_trial)
+                        plan['available'] = not bool(previous_trial)
+                    else:
+                        plan['available'] = True
+                        
+            except DealerProfile.DoesNotExist:
+                # If no dealer profile, mark trial as available
+                for plan in response_data:
+                    plan['available'] = True
+                    if plan.get('plan_type') == 'trial':
+                        plan['trial_already_used'] = False
+        else:
+            # If not authenticated, mark all as available
+            for plan in response_data:
+                plan['available'] = True
+                if plan.get('plan_type') == 'trial':
+                    plan['trial_already_used'] = False
+        
+        return Response(response_data)
 
 
 class DealerSubscriptionView(APIView):
@@ -86,6 +165,23 @@ class DealerSubscriptionView(APIView):
                     {'error': 'You already have an active subscription'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            
+            # Check if dealer is trying to use trial plan but has already used it before
+            if plan.plan_type == 'trial':
+                previous_trial = DealerSubscription.objects.filter(
+                    dealer=dealer,
+                    plan__plan_type='trial'
+                ).first()
+                
+                if previous_trial:
+                    return Response(
+                        {
+                            'error': 'Free trial can only be used once. Please choose a paid subscription plan.',
+                            'message': 'You have already used your one-time free trial period. Please select from our paid subscription plans to continue.',
+                            'redirect_to_paid_plans': True
+                        }, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
             
             # Create new subscription
             if plan.plan_type == 'trial':
@@ -167,6 +263,23 @@ def renew_subscription(request):
             )
         
         plan = get_object_or_404(SubscriptionPlan, id=plan_id, is_active=True)
+        
+        # Check if dealer is trying to renew with trial plan but has already used it before
+        if plan.plan_type == 'trial':
+            previous_trial = DealerSubscription.objects.filter(
+                dealer=dealer,
+                plan__plan_type='trial'
+            ).first()
+            
+            if previous_trial:
+                return Response(
+                    {
+                        'error': 'Free trial can only be used once. Please choose a paid subscription plan.',
+                        'message': 'You have already used your one-time free trial period. Please select from our paid subscription plans to renew.',
+                        'redirect_to_paid_plans': True
+                    }, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # Get current subscription
         current_subscription = DealerSubscription.objects.filter(
@@ -359,3 +472,26 @@ def verify_payment(request, payment_id):
             {'error': 'Payment transaction not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
+
+class SubscriptionHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        histories = SubscriptionHistory.objects.filter(dealer__auth_id=request.user)
+        serializer = SubscriptionHistorySerializer(histories, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        try:
+            dealer = DealerProfile.objects.get(auth_id=request.user)
+        except DealerProfile.DoesNotExist:
+            return Response({'error': 'Dealer profile not found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Copy the request data and assign dealer
+        data = request.data.copy()
+        serializer = SubscriptionHistorySerializer(data=data)
+
+        if serializer.is_valid():
+            serializer.save(dealer=dealer)  # Set dealer here
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

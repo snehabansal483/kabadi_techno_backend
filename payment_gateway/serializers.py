@@ -32,9 +32,18 @@ class SubscriptionHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubscriptionHistory
         fields = [
-            'id', 'dealer_ktid', 'subscription_plan', 'amount', 'payment_method',
-            'payment_status', 'transaction_id', 'payment_date', 'notes'
+            'id',
+            'dealer_ktid',              # Read-only: shown in response
+            'subscription',             # Required for POST request
+            'subscription_plan',        # Read-only: shown in response
+            'amount',
+            'payment_method',
+            'payment_status',
+            'transaction_id',
+            'payment_date',
+            'notes'
         ]
+        read_only_fields = ['dealer_ktid', 'subscription_plan', 'payment_date']
 
 
 class PaymentTransactionSerializer(serializers.ModelSerializer):

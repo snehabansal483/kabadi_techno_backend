@@ -5,11 +5,14 @@ urlpatterns = [
     # Subscription plan endpoints
     path('plans/', views.SubscriptionPlanListView.as_view(), name='subscription_plans'),
     
+    # Trial eligibility check
+    path('trial/eligibility/', views.check_trial_eligibility_view, name='trial_eligibility'),
+    
     # Dealer subscription management
     path('subscription/', views.DealerSubscriptionView.as_view(), name='dealer_subscription'),
     path('subscription/history/', views.subscription_history, name='subscription_history'),
     path('subscription/renew/', views.renew_subscription, name='renew_subscription'),
-    
+    path('subscription-history/', views.SubscriptionHistoryView.as_view(), name='subscription-history'),
     # Payment related endpoints
     path('submit-payment/', views.submit_payment, name='submit_payment'),
     path('bank-details/', views.get_bank_details, name='bank_details'),
