@@ -172,8 +172,8 @@ class GetAllOrdersdealerSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = OrderProduct
-        fields = '_all_'
-        
+        fields = '__all__'
+
 class GetOrderProducutsSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderProduct
