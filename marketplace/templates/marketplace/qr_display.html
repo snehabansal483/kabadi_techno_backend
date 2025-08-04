@@ -301,15 +301,8 @@
             const button = document.querySelector('.download-btn');
             const originalText = button.innerHTML;
             
-            // Show loading state
-            button.innerHTML = `
-                <svg class="download-icon" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-                    <path d="M8 12l2 2 4-4" stroke="currentColor" stroke-width="2" fill="none"/>
-                </svg>
-                Generating...
-            `;
-            button.disabled = true;
+            // Hide the button during screenshot to avoid showing "Generating..." in image
+            button.style.display = 'none';
             
             // Get the container element
             const container = document.querySelector('.container');
@@ -338,7 +331,8 @@
                 link.click();
                 document.body.removeChild(link);
                 
-                // Reset button
+                // Show button again and reset
+                button.style.display = 'inline-flex';
                 button.innerHTML = originalText;
                 button.disabled = false;
                 
@@ -357,7 +351,8 @@
             }).catch(error => {
                 console.error('Error generating image:', error);
                 
-                // Reset button on error
+                // Show button again and reset on error
+                button.style.display = 'inline-flex';
                 button.innerHTML = originalText;
                 button.disabled = false;
                 
