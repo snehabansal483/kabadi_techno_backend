@@ -100,6 +100,7 @@ class GetAllOrdersdealerSerializer(serializers.ModelSerializer):
     quantities = serializers.SerializerMethodField()
     total_cart_items = serializers.SerializerMethodField()
     order_total = serializers.SerializerMethodField()
+    pickup = serializers.SerializerMethodField()
     
     def get_subcategory_names(self, obj):
         """Get all subcategory names for the same order_number"""
@@ -156,10 +157,23 @@ class GetAllOrdersdealerSerializer(serializers.ModelSerializer):
             total += subtotal + gst_amount + percentage_amount
         return round(total, 2)
     
+    def get_pickup(self, obj):
+        """Get pickup information from the related order"""
+        try:
+            # Get the order using order_number
+            order = Order.objects.get(order_number=obj.order_number)
+            return {
+                'pickup_date': order.pickup_date,
+                'pickup_time': order.pickup_time,
+                'pickup_datetime': f"{order.pickup_date} {order.pickup_time}"
+            }
+        except Order.DoesNotExist:
+            return None
+    
     class Meta:
         model = OrderProduct
-        fields = '__all__'
-
+        fields = '_all_'
+        
 class GetOrderProducutsSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderProduct

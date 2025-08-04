@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SubscriptionPlan, DealerSubscription, SubscriptionHistory, SubscriptionNotification
+from .models import SubscriptionPlan, DealerSubscription, SubscriptionHistory, SubscriptionNotification, PaymentTransaction, BankDetails
 
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
@@ -35,6 +35,64 @@ class SubscriptionHistorySerializer(serializers.ModelSerializer):
             'id', 'dealer_ktid', 'subscription_plan', 'amount', 'payment_method',
             'payment_status', 'transaction_id', 'payment_date', 'notes'
         ]
+
+
+class PaymentTransactionSerializer(serializers.ModelSerializer):
+    dealer_ktid = serializers.CharField(source='subscription.dealer.kt_id', read_only=True)
+    subscription_plan = serializers.CharField(source='subscription.plan.name', read_only=True)
+    
+    class Meta:
+        model = PaymentTransaction
+        fields = [
+            'id', 'subscription', 'dealer_ktid', 'subscription_plan', 
+            'transaction_id', 'amount', 'payment_method', 'payment_screenshot',
+            'verified', 'verified_by', 'verified_at', 'notes', 'created_at'
+        ]
+        read_only_fields = ['verified', 'verified_by', 'verified_at', 'notes']
+
+
+class SubmitPaymentSerializer(serializers.ModelSerializer):
+    """Serializer for users submitting payment details"""
+    class Meta:
+        model = PaymentTransaction
+        fields = ['subscription', 'transaction_id', 'amount', 'payment_method', 'payment_screenshot']
+    
+    def validate(self, data):
+        subscription = data.get('subscription')
+        amount = data.get('amount')
+        
+        # Validate that subscription belongs to the authenticated user
+        if hasattr(self.context['request'], 'user'):
+            if subscription.dealer.auth_id != self.context['request'].user:
+                raise serializers.ValidationError("You can only submit payment for your own subscription.")
+        
+        # Validate amount matches subscription plan price
+        if subscription.plan.price != amount:
+            raise serializers.ValidationError(
+                f"Amount must be {subscription.plan.price} for this subscription plan."
+            )
+        
+        # Check if payment already exists for this subscription
+        if PaymentTransaction.objects.filter(subscription=subscription).exists():
+            raise serializers.ValidationError("Payment details already submitted for this subscription.")
+        
+        return data
+
+
+class BankDetailsSerializer(serializers.ModelSerializer):
+    qr_code_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BankDetails
+        fields = [
+            'account_name', 'account_number', 'ifsc_code', 
+            'bank_name', 'branch_name', 'qr_code_url'
+        ]
+    
+    def get_qr_code_url(self, obj):
+        if obj.qr_code_image:
+            return obj.qr_code_image.url
+        return None
 
 
 class SubscriptionNotificationSerializer(serializers.ModelSerializer):

@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
-from .models import SubscriptionPlan, DealerSubscription, SubscriptionHistory, SubscriptionNotification
+from django.utils import timezone
+from .models import SubscriptionPlan, DealerSubscription, SubscriptionHistory, SubscriptionNotification, PaymentTransaction, BankDetails
 
 # Register your models here.
 
@@ -74,6 +75,61 @@ class SubscriptionHistoryAdmin(admin.ModelAdmin):
     def dealer_ktid(self, obj):
         return obj.dealer.kt_id
     dealer_ktid.short_description = 'KT ID'
+
+
+@admin.register(PaymentTransaction)
+class PaymentTransactionAdmin(admin.ModelAdmin):
+    list_display = ['dealer_ktid', 'subscription_plan', 'transaction_id', 'amount', 
+                   'payment_method', 'verified', 'verified_by', 'created_at']
+    list_filter = ['payment_method', 'verified', 'created_at']
+    search_fields = ['subscription__dealer__kt_id', 'transaction_id', 'verified_by']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'created_at'
+    actions = ['verify_payments', 'unverify_payments']
+    
+    def dealer_ktid(self, obj):
+        return obj.subscription.dealer.kt_id
+    dealer_ktid.short_description = 'KT ID'
+    
+    def subscription_plan(self, obj):
+        return obj.subscription.plan.name
+    subscription_plan.short_description = 'Plan'
+    
+    def verify_payments(self, request, queryset):
+        updated = 0
+        for payment in queryset.filter(verified=False):
+            payment.verified = True
+            payment.verified_by = request.user.username
+            payment.verified_at = timezone.now()
+            payment.save()
+            
+            # Activate the subscription
+            subscription = payment.subscription
+            subscription.status = 'active'
+            subscription.start_date = timezone.now()
+            subscription.end_date = subscription.start_date + timezone.timedelta(days=subscription.plan.duration_days)
+            subscription.save()
+            updated += 1
+        
+        self.message_user(request, f'{updated} payments verified and subscriptions activated.')
+    verify_payments.short_description = 'Verify selected payments and activate subscriptions'
+    
+    def unverify_payments(self, request, queryset):
+        updated = queryset.filter(verified=True).update(
+            verified=False, 
+            verified_by=None, 
+            verified_at=None
+        )
+        self.message_user(request, f'{updated} payments marked as unverified.')
+    unverify_payments.short_description = 'Mark selected payments as unverified'
+
+
+@admin.register(BankDetails)
+class BankDetailsAdmin(admin.ModelAdmin):
+    list_display = ['account_name', 'account_number', 'bank_name', 'is_active', 'created_at']
+    list_filter = ['is_active', 'bank_name', 'created_at']
+    search_fields = ['account_name', 'account_number', 'ifsc_code', 'bank_name']
+    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(SubscriptionNotification)
