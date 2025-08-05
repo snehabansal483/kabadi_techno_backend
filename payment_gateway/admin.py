@@ -2,16 +2,14 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
-from .models import SubscriptionPlan, DealerSubscription, SubscriptionHistory, SubscriptionNotification, PaymentTransaction, BankDetails
-
-# Register your models here.
+from .models import SubscriptionPlan, DealerSubscription, SubscriptionNotification, PaymentTransaction, BankDetails
 
 @admin.register(SubscriptionPlan)
 class SubscriptionPlanAdmin(admin.ModelAdmin):
-    list_display = ['name', 'plan_type', 'duration_days', 'price', 'is_active', 'created_at']
+    list_display = ['name', 'plan_type', 'duration_days', 'amount', 'is_active', 'created_at']
     list_filter = ['plan_type', 'is_active', 'created_at']
     search_fields = ['name', 'plan_type']
-    list_editable = ['price', 'is_active']
+    list_editable = ['amount', 'is_active']
     ordering = ['plan_type']
 
 
@@ -35,20 +33,14 @@ class DealerSubscriptionAdmin(admin.ModelAdmin):
     
     def days_remaining_display(self, obj):
         days = obj.days_remaining
-        if days > 7:
-            color = 'green'
-        elif days > 0:
-            color = 'orange'
-        else:
-            color = 'red'
+        color = 'green' if days > 7 else 'orange' if days > 0 else 'red'
         return format_html(f'<span style="color: {color};">{days} days</span>')
     days_remaining_display.short_description = 'Days Remaining'
     
     def payment_status(self, obj):
-        history = SubscriptionHistory.objects.filter(dealer=obj.dealer).order_by('-payment_date')
-        if history.exists():
-            latest_payment = history.first()
-            return latest_payment.payment_status
+        transaction = obj.payment_transactions.order_by('-created_at').first()
+        if transaction:
+            return transaction.payment_status
         return 'No Payment'
     payment_status.short_description = 'Payment Status'
     
@@ -63,25 +55,11 @@ class DealerSubscriptionAdmin(admin.ModelAdmin):
     activate_subscriptions.short_description = 'Mark selected subscriptions as active'
 
 
-@admin.register(SubscriptionHistory)
-class SubscriptionHistoryAdmin(admin.ModelAdmin):
-    list_display = ['dealer_ktid', 'amount', 'payment_status', 'payment_method', 
-                   'transaction_id', 'payment_date']
-    list_filter = ['payment_status', 'payment_method', 'payment_date']
-    search_fields = ['dealer__kt_id', 'transaction_id', 'dealer__auth_id__email']
-    readonly_fields = ['payment_date']
-    date_hierarchy = 'payment_date'
-    
-    def dealer_ktid(self, obj):
-        return obj.dealer.kt_id
-    dealer_ktid.short_description = 'KT ID'
-
-
 @admin.register(PaymentTransaction)
 class PaymentTransactionAdmin(admin.ModelAdmin):
     list_display = ['dealer_ktid', 'subscription_plan', 'transaction_id', 'amount', 
-                   'payment_method', 'verified', 'verified_by', 'created_at']
-    list_filter = ['payment_method', 'verified', 'created_at']
+                   'payment_method', 'verified', 'payment_status', 'verified_by', 'created_at']
+    list_filter = ['payment_method', 'verified', 'payment_status', 'created_at']
     search_fields = ['subscription__dealer__kt_id', 'transaction_id', 'verified_by']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'created_at'
@@ -102,15 +80,15 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
             payment.verified_by = request.user.username
             payment.verified_at = timezone.now()
             payment.save()
-            
-            # Activate the subscription
+
+            # Activate subscription
             subscription = payment.subscription
             subscription.status = 'active'
             subscription.start_date = timezone.now()
             subscription.end_date = subscription.start_date + timezone.timedelta(days=subscription.plan.duration_days)
             subscription.save()
             updated += 1
-        
+
         self.message_user(request, f'{updated} payments verified and subscriptions activated.')
     verify_payments.short_description = 'Verify selected payments and activate subscriptions'
     
@@ -123,6 +101,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         self.message_user(request, f'{updated} payments marked as unverified.')
     unverify_payments.short_description = 'Mark selected payments as unverified'
 
+
 @admin.register(BankDetails)
 class BankDetailsAdmin(admin.ModelAdmin):
     list_display = ['account_name', 'bank_name', 'is_active']
@@ -131,6 +110,7 @@ class BankDetailsAdmin(admin.ModelAdmin):
         'bank_name', 'branch_name', 'plan_2', 'plan_3', 'plan_4',
         'is_active'
     ]
+
 
 @admin.register(SubscriptionNotification)
 class SubscriptionNotificationAdmin(admin.ModelAdmin):
@@ -145,7 +125,6 @@ class SubscriptionNotificationAdmin(admin.ModelAdmin):
     dealer_ktid.short_description = 'KT ID'
     
     def mark_as_sent(self, request, queryset):
-        from django.utils import timezone
         updated = queryset.update(is_sent=True, sent_at=timezone.now())
         self.message_user(request, f'{updated} notifications marked as sent.')
     mark_as_sent.short_description = 'Mark selected notifications as sent'

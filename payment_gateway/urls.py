@@ -10,12 +10,12 @@ urlpatterns = [
     
     # Admin utility endpoints
     path('admin/expire-subscriptions/', views.expire_subscriptions_manually, name='expire_subscriptions'),
-    
+    path('admin/dealers-subscriptions/', views.get_all_dealers_with_subscriptions, name='admin_dealers_subscriptions'),
     # Dealer subscription management
     path('subscription/', views.DealerSubscriptionView.as_view(), name='dealer_subscription'),
     path('subscription/history/', views.subscription_history, name='subscription_history'),
     path('subscription/renew/', views.renew_subscription, name='renew_subscription'),
-    path('subscription-history/', views.SubscriptionHistoryView.as_view(), name='subscription-history'),
+   
     # Payment related endpoints
     path('submit-payment/', views.submit_payment, name='submit_payment'),
     path('bank-details/', views.get_bank_details, name='bank_details'),

@@ -1,9 +1,10 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
+from datetime import datetime
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from rest_framework import status
 from accounts.models import DealerProfile
@@ -17,6 +18,19 @@ from .serializers import (
     BankDetailsSerializer
 )
 from .utils import auto_expire_subscriptions, get_dealer_active_subscription, check_subscription_status
+
+# Custom permission classes
+class IsAdminUserCustom(BasePermission):
+    """
+    Custom permission to only allow admin users to access the view.
+    Requires the user to be authenticated and have is_admin=True.
+    """
+    def has_permission(self, request, view):
+        return bool(
+            request.user and 
+            request.user.is_authenticated and 
+            getattr(request.user, 'is_admin', False)
+        )
 
 # Create your views here.
 
@@ -33,7 +47,7 @@ def check_trial_eligibility(dealer):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsAdminUserCustom])
 def expire_subscriptions_manually(request):
     """
     Admin endpoint to manually expire outdated subscriptions
@@ -441,10 +455,9 @@ def get_payment_status(request, subscription_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsAdminUserCustom])
 def verify_payment(request, payment_id):
     """Admin endpoint to verify payment and activate subscription"""
-    # Note: This should have admin permission check in a real application
     try:
         payment_transaction = get_object_or_404(PaymentTransaction, id=payment_id)
         action = request.data.get('action')  # 'approve' or 'reject'
@@ -498,25 +511,115 @@ def verify_payment(request, payment_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
-class SubscriptionHistoryView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        histories = SubscriptionHistory.objects.filter(dealer__auth_id=request.user)
-        serializer = SubscriptionHistorySerializer(histories, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-        try:
-            dealer = DealerProfile.objects.get(auth_id=request.user)
-        except DealerProfile.DoesNotExist:
-            return Response({'error': 'Dealer profile not found'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Copy the request data and assign dealer
-        data = request.data.copy()
-        serializer = SubscriptionHistorySerializer(data=data)
-
-        if serializer.is_valid():
-            serializer.save(dealer=dealer)  # Set dealer here
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUserCustom])
+def get_all_dealers_with_subscriptions(request):
+    """
+    Admin-only endpoint to get all dealers with their subscription details
+    """
+    try:
+        # Get all dealers with their related subscriptions, excluding those without auth_id
+        dealers = DealerProfile.objects.select_related('auth_id').prefetch_related(
+            'subscriptions__plan',
+            'subscriptions__payment_transactions'
+        ).filter(auth_id__isnull=False)
+        
+        dealers_data = []
+        
+        for dealer in dealers:
+            # Get dealer's current active subscription
+            active_subscription = dealer.subscriptions.filter(
+                status='active',
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now()
+            ).first()
+            
+            # Get dealer's latest subscription (active or not)
+            latest_subscription = dealer.subscriptions.order_by('-created_at').first()
+            
+            # Get subscription history count
+            subscription_count = dealer.subscriptions.count()
+            
+            dealer_info = {
+                'dealer_id': dealer.id,
+                'kt_id': dealer.kt_id,
+                'dealer_name': dealer.auth_id.full_name if dealer.auth_id.full_name else dealer.auth_id.email,
+                'email': dealer.auth_id.email,
+                'phone_number': dealer.auth_id.phone_number or 'N/A',
+                'profile_type': dealer.profile_type or 'N/A',
+                'account_active': dealer.auth_id.is_active,
+                'total_subscriptions': subscription_count,
+                'current_subscription': None,
+                'latest_subscription': None,
+                'marketplace_access': False
+            }
+            
+            # Add current active subscription details
+            if active_subscription:
+                # Get the payment transaction for this subscription (using prefetched data)
+                payment_transaction = active_subscription.payment_transactions.first()
+                
+                dealer_info['current_subscription'] = {
+                    'id': active_subscription.id,
+                    'plan_name': active_subscription.plan.name,
+                    'plan_type': active_subscription.plan.plan_type,
+                    'start_date': active_subscription.start_date,
+                    'end_date': active_subscription.end_date,
+                    'status': active_subscription.status,
+                    'is_trial': active_subscription.is_trial,
+                    'days_remaining': active_subscription.days_remaining,
+                    'is_expiring_soon': active_subscription.is_expiring_soon,
+                    'payment_transaction_id': payment_transaction.id if payment_transaction else None,
+                    'user_transaction_reference': payment_transaction.transaction_id if payment_transaction else None,
+                    'payment_verified': payment_transaction.verified if payment_transaction else None,
+                    'payment_method': payment_transaction.payment_method if payment_transaction else None
+                }
+                dealer_info['marketplace_access'] = True
+            
+            # Add latest subscription details if different from active
+            if latest_subscription and (not active_subscription or latest_subscription.id != active_subscription.id):
+                # Get the payment transaction for this subscription (using prefetched data)
+                latest_payment_transaction = latest_subscription.payment_transactions.first()
+                
+                dealer_info['latest_subscription'] = {
+                    'id': latest_subscription.id,
+                    'plan_name': latest_subscription.plan.name,
+                    'plan_type': latest_subscription.plan.plan_type,
+                    'start_date': latest_subscription.start_date,
+                    'end_date': latest_subscription.end_date,
+                    'status': latest_subscription.status,
+                    'is_trial': latest_subscription.is_trial,
+                    'payment_transaction_id': latest_payment_transaction.id if latest_payment_transaction else None,
+                    'user_transaction_reference': latest_payment_transaction.transaction_id if latest_payment_transaction else None,
+                    'payment_verified': latest_payment_transaction.verified if latest_payment_transaction else None,
+                    'payment_method': latest_payment_transaction.payment_method if latest_payment_transaction else None
+                }
+            
+            dealers_data.append(dealer_info)
+        
+        # Sort by latest subscription date (most recent first)
+        # Handle cases where latest_subscription might be None
+        def get_sort_date(dealer_data):
+            if dealer_data.get('latest_subscription') and dealer_data['latest_subscription'].get('start_date'):
+                return dealer_data['latest_subscription']['start_date']
+            elif dealer_data.get('current_subscription') and dealer_data['current_subscription'].get('start_date'):
+                return dealer_data['current_subscription']['start_date']
+            else:
+                # Return a very old date for dealers without any subscriptions
+                return timezone.make_aware(datetime.min)
+        
+        dealers_data.sort(key=get_sort_date, reverse=True)
+        
+        return Response({
+            'total_dealers': len(dealers_data),
+            'dealers_with_subscriptions': len([d for d in dealers_data if d['total_subscriptions'] > 0]),
+            'dealers_with_active_access': len([d for d in dealers_data if d['marketplace_access']]),
+            'dealers': dealers_data
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to retrieve dealer subscriptions: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

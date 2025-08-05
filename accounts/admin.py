@@ -7,16 +7,16 @@ from django.contrib.auth.admin import UserAdmin
 class AccountAdmin(UserAdmin):
     model = Account
     list_display = ('email', 'full_name', 'account_role','account_type','is_staff', 'is_active','online',)
-    list_filter = ('is_staff', 'is_active','email')
+    list_filter = ('is_staff', 'is_active','email','is_admin')
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal Info', {'fields': ('full_name',)}),
-        ('Permissions', {'fields': ('is_staff', 'is_active', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Permissions', {'fields': ('is_admin', 'is_staff', 'is_active', 'is_superuser', 'groups', 'user_permissions')}),
     )
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'password1', 'password2', 'is_staff', 'is_active'),
+            'fields': ('email', 'password1', 'password2', 'is_staff', 'is_active', 'is_admin'),
         }),
     )
     search_fields = ('email',)

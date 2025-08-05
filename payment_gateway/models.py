@@ -17,7 +17,7 @@ class SubscriptionPlan(models.Model):
     plan_type = models.CharField(max_length=20, choices=PLAN_CHOICES, unique=True)
     name = models.CharField(max_length=100)
     duration_days = models.IntegerField(help_text="Duration in days")
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -89,38 +89,20 @@ class DealerSubscription(models.Model):
         ordering = ['-created_at']
 
 
-class SubscriptionHistory(models.Model):
-    """Model to track subscription payment history"""
-    dealer = models.ForeignKey(DealerProfile, on_delete=models.CASCADE, related_name='subscription_history')
-    subscription = models.ForeignKey(DealerSubscription, on_delete=models.CASCADE, related_name='payments')
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_method = models.CharField(max_length=50, blank=True, null=True)
-    payment_status = models.CharField(max_length=20, choices=[
-        ('pending', 'Pending'),
-        ('success', 'Success'),
-        ('failed', 'Failed'),
-        ('refunded', 'Refunded'),
-    ], default='pending')
-    transaction_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
-    payment_date = models.DateTimeField(auto_now_add=True)
-    notes = models.TextField(blank=True, null=True)
-    
-    def __str__(self):
-        return f"{self.dealer.kt_id} - {self.amount} ({self.payment_status})"
-    
-    class Meta:
-        verbose_name = "Subscription Payment"
-        verbose_name_plural = "Subscription Payments"
-        ordering = ['-payment_date']
-
-
 class PaymentTransaction(models.Model):
     """Model to store payment details submitted by users"""
     PAYMENT_METHOD_CHOICES = [
         ('neft', 'NEFT Transfer'),
         ('qr_code', 'QR Code Payment'),
     ]
-    
+
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('no_payment', 'No Payment'),
+        ('partial', 'Partial'),
+        ('paid', 'Paid'),
+    ]
+
     subscription = models.ForeignKey(DealerSubscription, on_delete=models.CASCADE, related_name='payment_transactions')
     transaction_id = models.CharField(max_length=100, help_text="Transaction ID provided by user")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -130,16 +112,30 @@ class PaymentTransaction(models.Model):
     verified_by = models.CharField(max_length=100, blank=True, null=True, help_text="Admin who verified the payment")
     verified_at = models.DateTimeField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True, help_text="Admin notes")
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    def save(self, *args, **kwargs):
+        # Automatically set payment_status based on verification and amount
+        if not self.verified:
+            self.payment_status = 'pending'
+        elif self.amount <= 0:
+            self.payment_status = 'no_payment'
+        elif self.amount < self.subscription.plan.amount:
+            self.payment_status = 'partial'
+        else:
+            self.payment_status = 'paid'
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.subscription.dealer.kt_id} - {self.transaction_id} - {'Verified' if self.verified else 'Pending'}"
-    
+        return f"{self.subscription.dealer.kt_id} - {self.transaction_id} - {self.payment_status}"
+
     class Meta:
         verbose_name = "Payment Transaction"
         verbose_name_plural = "Payment Transactions"
         ordering = ['-created_at']
+
 
 
 class BankDetails(models.Model):

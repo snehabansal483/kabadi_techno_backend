@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SubscriptionPlan, DealerSubscription, SubscriptionHistory, SubscriptionNotification, PaymentTransaction, BankDetails
+from .models import SubscriptionPlan, DealerSubscription, SubscriptionNotification, PaymentTransaction, BankDetails
 
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
@@ -24,41 +24,14 @@ class DealerSubscriptionSerializer(serializers.ModelSerializer):
             'is_expiring_soon', 'auto_renew', 'created_at'
         ]
 
-
-class SubscriptionHistorySerializer(serializers.ModelSerializer):
-    dealer_ktid = serializers.CharField(source='dealer.kt_id', read_only=True)
-    subscription_plan = serializers.CharField(source='subscription.plan.name', read_only=True)
-    
-    class Meta:
-        model = SubscriptionHistory
-        fields = [
-            'id',
-            'dealer_ktid',              # Read-only: shown in response
-            'subscription',             # Required for POST request
-            'subscription_plan',        # Read-only: shown in response
-            'amount',
-            'payment_method',
-            'payment_status',
-            'transaction_id',
-            'payment_date',
-            'notes'
-        ]
-        read_only_fields = ['dealer_ktid', 'subscription_plan', 'payment_date']
-
-
 class PaymentTransactionSerializer(serializers.ModelSerializer):
-    dealer_ktid = serializers.CharField(source='subscription.dealer.kt_id', read_only=True)
     subscription_plan = serializers.CharField(source='subscription.plan.name', read_only=True)
-    
+    dealer_ktid = serializers.CharField(source='subscription.dealer.kt_id', read_only=True)
+
     class Meta:
         model = PaymentTransaction
-        fields = [
-            'id', 'subscription', 'dealer_ktid', 'subscription_plan', 
-            'transaction_id', 'amount', 'payment_method', 'payment_screenshot',
-            'verified', 'verified_by', 'verified_at', 'notes', 'created_at'
-        ]
-        read_only_fields = ['verified', 'verified_by', 'verified_at', 'notes']
-
+        fields = '__all__'
+        read_only_fields = ['payment_status']
 
 class SubmitPaymentSerializer(serializers.ModelSerializer):
     """Serializer for users submitting payment details"""
