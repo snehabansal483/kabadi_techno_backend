@@ -8,6 +8,9 @@ urlpatterns = [
     # Trial eligibility check
     path('trial/eligibility/', views.check_trial_eligibility_view, name='trial_eligibility'),
     
+    # Admin utility endpoints
+    path('admin/expire-subscriptions/', views.expire_subscriptions_manually, name='expire_subscriptions'),
+    
     # Dealer subscription management
     path('subscription/', views.DealerSubscriptionView.as_view(), name='dealer_subscription'),
     path('subscription/history/', views.subscription_history, name='subscription_history'),

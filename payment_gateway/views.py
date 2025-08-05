@@ -16,6 +16,7 @@ from .serializers import (
     SubmitPaymentSerializer,
     BankDetailsSerializer
 )
+from .utils import auto_expire_subscriptions, get_dealer_active_subscription, check_subscription_status
 
 # Create your views here.
 
@@ -29,6 +30,27 @@ def check_trial_eligibility(dealer):
         plan__plan_type='trial'
     ).first()
     return not bool(previous_trial)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def expire_subscriptions_manually(request):
+    """
+    Admin endpoint to manually expire outdated subscriptions
+    This can be called periodically or as needed
+    """
+    # Note: In production, add admin permission check
+    try:
+        expired_count = auto_expire_subscriptions()
+        return Response({
+            'message': f'Successfully expired {expired_count} subscriptions',
+            'expired_count': expired_count
+        })
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to expire subscriptions: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET'])
@@ -115,25 +137,32 @@ class DealerSubscriptionView(APIView):
         """Get current dealer's subscription status"""
         try:
             dealer = DealerProfile.objects.get(auth_id=request.user)
-            current_subscription = DealerSubscription.objects.filter(
-                dealer=dealer, 
-                status='active'
-            ).first()
             
-            if current_subscription:
-                serializer = DealerSubscriptionSerializer(current_subscription)
+            # Use utility function to get subscription status with auto-expiration
+            subscription_status = check_subscription_status(dealer)
+            
+            if subscription_status['has_active_subscription']:
+                serializer = DealerSubscriptionSerializer(subscription_status['subscription'])
                 return Response({
                     'has_active_subscription': True,
                     'subscription': serializer.data,
-                    'marketplace_access': current_subscription.is_active
+                    'marketplace_access': True
                 })
             else:
-                return Response({
+                response_data = {
                     'has_active_subscription': False,
                     'subscription': None,
                     'marketplace_access': False,
                     'message': 'No active subscription found. Please subscribe to access the marketplace.'
-                })
+                }
+                
+                # If there was a recent subscription that expired, include its details
+                if subscription_status['last_subscription']:
+                    serializer = DealerSubscriptionSerializer(subscription_status['last_subscription'])
+                    response_data['last_subscription'] = serializer.data
+                    response_data['message'] = 'Your subscription has expired. Please renew to access the marketplace.'
+                
+                return Response(response_data)
         except DealerProfile.DoesNotExist:
             return Response(
                 {'error': 'Dealer profile not found'}, 
@@ -154,11 +183,8 @@ class DealerSubscriptionView(APIView):
             
             plan = get_object_or_404(SubscriptionPlan, id=plan_id, is_active=True)
             
-            # Check if dealer already has an active subscription
-            existing_subscription = DealerSubscription.objects.filter(
-                dealer=dealer, 
-                status='active'
-            ).first()
+            # Check if dealer already has an active subscription (with auto-expiration)
+            existing_subscription = get_dealer_active_subscription(dealer)
             
             if existing_subscription:
                 return Response(
@@ -223,17 +249,16 @@ def check_marketplace_access(request):
     """Check if dealer has marketplace access"""
     try:
         dealer = DealerProfile.objects.get(auth_id=request.user)
-        current_subscription = DealerSubscription.objects.filter(
-            dealer=dealer, 
-            status='active'
-        ).first()
         
-        if current_subscription and current_subscription.is_active:
+        # Use utility function to get active subscription with auto-expiration
+        active_subscription = get_dealer_active_subscription(dealer)
+        
+        if active_subscription and active_subscription.is_active:
             return Response({
                 'access_granted': True,
-                'subscription_type': current_subscription.plan.plan_type,
-                'days_remaining': current_subscription.days_remaining,
-                'expires_on': current_subscription.end_date
+                'subscription_type': active_subscription.plan.plan_type,
+                'days_remaining': active_subscription.days_remaining,
+                'expires_on': active_subscription.end_date
             })
         else:
             return Response({
