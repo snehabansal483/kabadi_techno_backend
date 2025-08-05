@@ -5,7 +5,7 @@ from .models import SubscriptionPlan, DealerSubscription, SubscriptionNotificati
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubscriptionPlan
-        fields = ['id', 'plan_type', 'name', 'duration_days', 'price', 'description']
+        fields = ['id', 'plan_type', 'name', 'duration_days', 'amount', 'description']
 
 
 class DealerSubscriptionSerializer(serializers.ModelSerializer):
@@ -49,9 +49,9 @@ class SubmitPaymentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("You can only submit payment for your own subscription.")
         
         # Validate amount matches subscription plan price
-        if subscription.plan.price != amount:
+        if subscription.plan.amount != amount:
             raise serializers.ValidationError(
-                f"Amount must be {subscription.plan.price} for this subscription plan."
+                f"Amount must be {subscription.plan.amount} for this subscription plan."
             )
         
         # Check if payment already exists for this subscription

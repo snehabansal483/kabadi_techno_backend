@@ -8,7 +8,7 @@ from django.utils import timezone
 from datetime import date
 from .serializers import *
 from .models import Marketplace
-from accounts.models import DealerProfile
+from accounts.models import DealerProfile, Account
 
 from PIL import Image
 import qrcode
@@ -254,3 +254,136 @@ def marketplace_qr_display(request, kt_id):
     }
     
     return render(request, 'marketplace/qr_display.html', context)
+
+
+class DeleteMarketplace(APIView):
+    """Delete a marketplace - only accessible to admin users"""
+    
+    def delete(self, request, kt_id):
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return Response({
+                'error': 'Authentication required',
+                'message': 'You must be logged in to perform this action'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Check if user is admin
+        if not request.user.is_admin:
+            return Response({
+                'error': 'Admin access required',
+                'message': 'Only admin users can delete marketplaces'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            # Get the marketplace
+            marketplace = Marketplace.objects.get(kt_id=kt_id)
+            
+            # Store marketplace info for response
+            dealer_name = marketplace.dealer_id.auth_id.full_name if marketplace.dealer_id.auth_id else marketplace.dealer_id.kt_id
+            marketplace_id = marketplace.kt_id
+            dealer_kt_id = marketplace.dealer_id.kt_id
+            marketplace_status = marketplace.status
+            
+            # Optional: Check if marketplace has active subscription before deletion
+            from payment_gateway.models import DealerSubscription
+            subscription = DealerSubscription.objects.filter(
+                dealer=marketplace.dealer_id,
+                status='active'
+            ).first()
+            
+            subscription_info = None
+            if subscription and subscription.is_active:
+                subscription_info = {
+                    'subscription_type': subscription.plan.plan_type,
+                    'days_remaining': subscription.days_remaining,
+                    'end_date': subscription.end_date
+                }
+            
+            # Delete the marketplace (this will also delete related QR code files if needed)
+            marketplace.delete()
+            
+            return Response({
+                'success': 'Marketplace deleted successfully',
+                'deleted_marketplace_id': marketplace_id,
+                'dealer_kt_id': dealer_kt_id,
+                'dealer_name': dealer_name,
+                'marketplace_status': marketplace_status,
+                'subscription_info': subscription_info,
+                'deleted_by': request.user.full_name,
+                'deleted_by_email': request.user.email,
+                'deleted_at': timezone.now()
+            }, status=status.HTTP_200_OK)
+            
+        except Marketplace.DoesNotExist:
+            return Response({
+                'error': 'Marketplace not found',
+                'message': f'No marketplace found with kt_id: {kt_id}'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        except Exception as e:
+            return Response({
+                'error': 'Internal server error',
+                'message': f'An error occurred while deleting marketplace: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SoftDeleteMarketplace(APIView):
+    """Soft delete a marketplace by deactivating it - only accessible to admin users"""
+    
+    def patch(self, request, kt_id):
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return Response({
+                'error': 'Authentication required',
+                'message': 'You must be logged in to perform this action'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Check if user is admin
+        if not request.user.is_admin:
+            return Response({
+                'error': 'Admin access required',
+                'message': 'Only admin users can deactivate marketplaces'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            # Get the marketplace
+            marketplace = Marketplace.objects.get(kt_id=kt_id)
+            
+            # Check if already deactivated
+            if marketplace.status == 'deactive':
+                return Response({
+                    'message': 'Marketplace is already deactivated',
+                    'marketplace_id': marketplace.kt_id,
+                    'status': marketplace.status
+                }, status=status.HTTP_200_OK)
+            
+            # Store marketplace info for response
+            dealer_name = marketplace.dealer_id.auth_id.full_name if marketplace.dealer_id.auth_id else marketplace.dealer_id.kt_id
+            previous_status = marketplace.status
+            
+            # Soft delete by setting status to deactive
+            marketplace.status = 'deactive'
+            marketplace.save()
+            
+            return Response({
+                'success': 'Marketplace deactivated successfully',
+                'marketplace_id': marketplace.kt_id,
+                'dealer_name': dealer_name,
+                'previous_status': previous_status,
+                'current_status': marketplace.status,
+                'deactivated_by': request.user.full_name,
+                'deactivated_by_email': request.user.email,
+                'deactivated_at': timezone.now()
+            }, status=status.HTTP_200_OK)
+            
+        except Marketplace.DoesNotExist:
+            return Response({
+                'error': 'Marketplace not found',
+                'message': f'No marketplace found with kt_id: {kt_id}'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        except Exception as e:
+            return Response({
+                'error': 'Internal server error',
+                'message': f'An error occurred while deactivating marketplace: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
