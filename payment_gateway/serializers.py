@@ -87,21 +87,21 @@ class SubmitPaymentSerializer(serializers.ModelSerializer):
         
         return data
 
-
 class BankDetailsSerializer(serializers.ModelSerializer):
-    qr_code_url = serializers.SerializerMethodField()
-    
     class Meta:
         model = BankDetails
         fields = [
-            'account_name', 'account_number', 'ifsc_code', 
-            'bank_name', 'branch_name', 'qr_code_url'
+            'account_name',
+            'account_number',
+            'ifsc_code',
+            'bank_name',
+            'branch_name',
+            'plan_2',
+            'plan_3',
+            'plan_4'
         ]
-    
-    def get_qr_code_url(self, obj):
-        if obj.qr_code_image:
-            return obj.qr_code_image.url
-        return None
+
+
 
 
 class SubscriptionNotificationSerializer(serializers.ModelSerializer):

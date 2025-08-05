@@ -123,14 +123,14 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         self.message_user(request, f'{updated} payments marked as unverified.')
     unverify_payments.short_description = 'Mark selected payments as unverified'
 
-
 @admin.register(BankDetails)
 class BankDetailsAdmin(admin.ModelAdmin):
-    list_display = ['account_name', 'account_number', 'bank_name', 'is_active', 'created_at']
-    list_filter = ['is_active', 'bank_name', 'created_at']
-    search_fields = ['account_name', 'account_number', 'ifsc_code', 'bank_name']
-    readonly_fields = ['created_at', 'updated_at']
-
+    list_display = ['account_name', 'bank_name', 'is_active']
+    fields = [
+        'account_name', 'account_number', 'ifsc_code',
+        'bank_name', 'branch_name', 'plan_2', 'plan_3', 'plan_4',
+        'is_active'
+    ]
 
 @admin.register(SubscriptionNotification)
 class SubscriptionNotificationAdmin(admin.ModelAdmin):

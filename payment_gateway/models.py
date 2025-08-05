@@ -143,24 +143,42 @@ class PaymentTransaction(models.Model):
 
 
 class BankDetails(models.Model):
-    """Model to store company bank account details for NEFT transfers"""
+    """Model to store company bank account details for NEFT transfers and UPI"""
     account_name = models.CharField(max_length=200)
     account_number = models.CharField(max_length=50)
     ifsc_code = models.CharField(max_length=20)
     bank_name = models.CharField(max_length=200)
     branch_name = models.CharField(max_length=200, blank=True, null=True)
-    qr_code_image = models.ImageField(upload_to='static_qr/', blank=True, null=True)
+
+    # QR code URLs for different plans
+    plan_2 = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="QR code URL or text for 3-month plan"
+    )
+    plan_3 = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="QR code URL or text for 6-month plan"
+    )
+    plan_4 = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="QR code URL or text for 1-year plan"
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     def __str__(self):
         return f"{self.account_name} - {self.account_number}"
-    
+
     class Meta:
         verbose_name = "Bank Details"
         verbose_name_plural = "Bank Details"
-
 
 class SubscriptionNotification(models.Model):
     """Model to track subscription expiry notifications"""
