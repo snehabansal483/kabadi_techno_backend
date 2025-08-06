@@ -1,365 +1,307 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ marketplace.dealer_id.auth_id.full_name }} - Kabadi Techno Marketplace</title>
-    {% load static %}
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 50%, #81C784 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .container {
-            background: white;
-            border-radius: 25px;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.15);
-            overflow: hidden;
-            max-width: 500px;
-            width: 100%;
-            margin: 20px;
-            border: 1px solid rgba(76, 175, 80, 0.1);
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 50%, #4CAF50 100%);
-            color: white;
-            padding: 40px 30px;
-            text-align: center;
-            position: relative;
-            border-bottom: 3px solid #4CAF50;
-        }
-        
-        .logo {
-            width: 100px;
-            height: 100px;
-            border-radius: 20px;
-            border: 4px solid white;
-            margin: 0 auto 25px;
-            display: block;
-            object-fit: contain;
-            background: white;
-            padding: 8px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-        }
-        
-        .company-name {
-            font-size: 28px;
-            font-weight: 700;
-            margin: 0;
-            text-shadow: 0 3px 6px rgba(0,0,0,0.3);
-            letter-spacing: 1px;
-        }
-        
-        .tagline {
-            font-size: 15px;
-            opacity: 0.95;
-            margin: 8px 0 0;
-            font-weight: 300;
-            letter-spacing: 0.5px;
-        }
-        
-        .content {
-            padding: 45px 35px;
-            text-align: center;
-            background: linear-gradient(to bottom, #ffffff 0%, #f8fff8 100%);
-        }
-        
-        .dealer-info {
-            margin-bottom: 35px;
-            padding: 25px;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 5px 20px rgba(76, 175, 80, 0.1);
-            border: 2px solid #E8F5E8;
-        }
-        
-        .dealer-name {
-            font-size: 32px;
-            font-weight: 700;
-            color: #1B5E20;
-            margin: 0 0 15px;
-            text-transform: capitalize;
-            letter-spacing: 0.5px;
-        }
-        
-        .dealer-id {
-            font-size: 18px;
-            color: #2E7D32;
-            background: linear-gradient(135deg, #E8F5E8 0%, #C8E6C9 100%);
-            padding: 12px 20px;
-            border-radius: 25px;
-            display: inline-block;
-            margin: 0 0 15px;
-            font-weight: 600;
-            border: 2px solid #4CAF50;
-        }
-        
-        .dealer-type {
-            font-size: 16px;
-            color: #4CAF50;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            background: #F1F8E9;
-            padding: 8px 16px;
-            border-radius: 15px;
-            display: inline-block;
-        }
-        
-        .qr-section {
-            margin: 35px 0;
-            padding: 30px;
-            background: white;
-            border-radius: 25px;
-            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.15);
-            border: 3px solid #E8F5E8;
-        }
-        
-        .qr-code {
-            width: 220px;
-            height: 220px;
-            margin: 0 auto;
-            border: 4px solid #4CAF50;
-            border-radius: 20px;
-            padding: 20px;
-            background: white;
-            box-shadow: 0 10px 25px rgba(76, 175, 80, 0.3);
-            transition: transform 0.3s ease;
-        }
-        
-        .qr-code:hover {
-            transform: scale(1.05);
-        }
-        
-        .qr-code img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        
-        .qr-title {
-            font-size: 22px;
-            color: #1B5E20;
-            margin: 0 0 15px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-        
-        .qr-instruction {
-            font-size: 16px;
-            color: #2E7D32;
-            margin: 0 0 25px;
-            font-weight: 500;
-        }
-        
-        .footer {
-            background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
-            color: white;
-            padding: 25px;
-            text-align: center;
-            font-size: 13px;
-            border-top: 3px solid #4CAF50;
-        }
-        
-        .powered-by {
-            margin: 12px 0;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        
-        .website {
-            color: #C8E6C9;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 14px;
-            transition: color 0.3s ease;
-        }
-        
-        .website:hover {
-            color: white;
-        }
-        
-        .download-btn {
-            background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
-            margin: 20px 0;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .download-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
-            background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);
-        }
-        
-        .download-btn:active {
-            transform: translateY(0);
-        }
-        
-        .download-icon {
-            width: 20px;
-            height: 20px;
-            fill: currentColor;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                margin: 10px;
-                border-radius: 15px;
-            }
-            
-            .header {
-                padding: 20px;
-            }
-            
-            .content {
-                padding: 30px 20px;
-            }
-            
-            .dealer-name {
-                font-size: 24px;
-            }
-            
-            .qr-code {
-                width: 180px;
-                height: 180px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Kabadi Techno Poster</title>
+  <!-- Include html2canvas library for image capture -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #eaeaea;
+    }
+
+    .poster {
+      width: 595px;
+      height: 842px;
+      margin: 30px auto;
+      background: url('/media/marketplace/QRs/poster.jpg') no-repeat center top;
+      background-size: cover;
+      position: relative;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+    }
+
+    #dynamic-qr {
+      position: absolute;
+      bottom: 90px; /* Positioned above "JOIN US NOW" text */
+      right: 15px;
+      width: 110px;
+      height: 110px;
+      background: white;
+      padding: 4px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      border: 2px solid #2E7D32;
+    }
+
+    .dealer-name {
+      position: absolute;
+      bottom: 720px; /* Positioned above "What We Do" text */
+      right: 10px; /* Align with the right side content */
+      left: auto;
+      width: 150px; /* Fixed width for better control */
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      color: white; /* Golden yellow color to match the poster */
+      text-transform: capitalize;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+      padding: 6px 10px;
+      background: rgba(46, 125, 50, 0.9); /* Dark green background */
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      border: 1px solid #FFD700;
+    }
+
+    .qr-error {
+      position: absolute;
+      bottom: 90px;
+      right: 15px;
+      width: 110px;
+      height: 110px;
+      background: white;
+      padding: 4px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      border: 2px solid #ff6b6b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 10px;
+      color: #ff0000;
+    }
+
+    .footer-text {
+      position: absolute;
+      bottom: 60px;
+      right: 65px;
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+    }
+
+    .download-btn {
+      position: absolute;
+      bottom: 70px; /* Just above "support to local kabadiwalas" text */
+      left: 220px;
+      background: linear-gradient(135deg, #FFD700 0%, #FFA000 100%);
+      color: #2E7D32;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 140px;
+      justify-content: center;
+    }
+
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
+      background: linear-gradient(135deg, #FFA000 0%, #FFD700 100%);
+    }
+
+    .download-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+    }
+
+    .download-icon {
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header with Logo -->
-        <div class="header">
-            <img src="/media/marketplace/QRs/logo.png" alt="Kabadi Techno Logo" class="logo">
-            <h1 class="company-name">Kabadi Techno</h1>
-            <p class="tagline">Sustainable Waste Management Solutions</p>
-        </div>
-        
-        <!-- Main Content -->
-        <div class="content">
-            <!-- Dealer Information -->
-            <div class="dealer-info">
-                <h2 class="dealer-name">{{ dealer_name }}</h2>
-                <div class="dealer-id">ID: {{ marketplace.kt_id }}</div>
-                <div class="dealer-type">{{ marketplace.dealer_id.profile_type }}</div>
-            </div>
-            
-            <!-- QR Code Section -->
-            <div class="qr-section">
-                <h3 class="qr-title">Scan QR Code</h3>
-                <p class="qr-instruction">Scan this code to access the marketplace</p>
-                <div class="qr-code">
-                    <img src="{{ marketplace.qrCode.url }}" alt="QR Code for {{ marketplace.kt_id }}">
-                </div>
-            </div>
-            
-            <!-- Download Button -->
-            <button class="download-btn" onclick="downloadCard()">
-                <svg class="download-icon" viewBox="0 0 24 24">
-                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                </svg>
-                Download QR
-            </button>
-        </div>
-        
-        <!-- Footer -->
-        <div class="footer">
-            <div class="powered-by">Powered by Kabadi Techno</div>
-            <div>
-                <a href="#" class="website">www.kabadi-techno.com</a>
-            </div>
-            <div>Marketplace QR Code - Generated on {{ current_date|date:"M d, Y" }}</div>
-        </div>
-    </div>
+
+  <div class="poster">
+    <!-- Display Dealer Name -->
+    <div class="dealer-name">{{ dealer_name|title }}</div>
     
-    <!-- HTML2Canvas Library -->
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <!-- Download Button -->
+    <button class="download-btn" onclick="downloadPoster()">
+      <span class="download-icon">⬇</span>
+      <span>Download</span>
+    </button>
     
-    <script>
-        function downloadCard() {
-            const button = document.querySelector('.download-btn');
-            const originalText = button.innerHTML;
-            
-            // Hide the button during screenshot to avoid showing "Generating..." in image
-            button.style.display = 'none';
-            
-            // Get the container element
-            const container = document.querySelector('.container');
-            
-            // Configure html2canvas options
-            const options = {
-                allowTaint: true,
-                useCORS: true,
-                scale: 2, // Higher quality
-                backgroundColor: '#ffffff',
-                width: container.offsetWidth,
-                height: container.offsetHeight,
-                scrollX: 0,
-                scrollY: 0
-            };
-            
-            // Generate canvas
-            html2canvas(container, options).then(canvas => {
-                // Create download link
-                const link = document.createElement('a');
-                link.download = `kabadi-techno-qr-card-{{ marketplace.kt_id }}.png`;
-                link.href = canvas.toDataURL('image/png', 1.0);
-                
-                // Trigger download
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                // Show button again and reset
-                button.style.display = 'inline-flex';
-                button.innerHTML = originalText;
-                button.disabled = false;
-                
-                // Show success message briefly
-                button.innerHTML = `
-                    <svg class="download-icon" viewBox="0 0 24 24">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                    </svg>
-                    Downloaded!
-                `;
-                
-                setTimeout(() => {
-                    button.innerHTML = originalText;
-                }, 2000);
-                
-            }).catch(error => {
-                console.error('Error generating image:', error);
-                
-                // Show button again and reset on error
-                button.style.display = 'inline-flex';
-                button.innerHTML = originalText;
-                button.disabled = false;
-                
-                // Show error message
-                alert('Error generating download. Please try again.');
-            });
+    <!-- Dynamic QR Code from Marketplace -->
+    {% if marketplace.qrCode %}
+      <img id="dynamic-qr" src="{{ marketplace.qrCode.url }}" alt="QR Code for {{ dealer_name }}" />
+    {% elif marketplace.url %}
+      <img id="dynamic-qr" src="https://api.qrserver.com/v1/create-qr-code/?data={{ marketplace.url|urlencode }}&size=200x200" alt="QR Code for {{ dealer_name }}" />
+    {% else %}
+      <div class="qr-error">
+        <div style="font-size: 20px;">📱</div>
+        <div>QR Code</div>
+        <div>Not Available</div>
+      </div>
+    {% endif %}
+    
+  </div>
+
+  <script>
+    // Download poster as JPG functionality
+    function downloadPoster() {
+      const posterElement = document.querySelector('.poster');
+      const dealerName = '{{ dealer_name|escapejs }}';
+      const downloadBtn = document.querySelector('.download-btn');
+      
+      // Hide download button temporarily
+      if (downloadBtn) {
+        downloadBtn.style.display = 'none';
+      }
+      
+      // Show loading state
+      const originalText = downloadBtn ? downloadBtn.innerHTML : '';
+      if (downloadBtn) {
+        downloadBtn.style.display = 'flex';
+        downloadBtn.innerHTML = '<span>📥</span><span>Generating...</span>';
+        downloadBtn.disabled = true;
+      }
+      
+      // Wait a moment for the button to hide, then capture
+      setTimeout(() => {
+        // Hide button again for capture
+        if (downloadBtn) {
+          downloadBtn.style.display = 'none';
         }
-    </script>
+        
+        // Configure html2canvas options for better quality
+        const options = {
+          allowTaint: true,
+          useCORS: true,
+          scale: 2, // Higher resolution
+          width: 595,
+          height: 842,
+          backgroundColor: null,
+          logging: false,
+          onclone: function(clonedDoc) {
+            // Ensure images are loaded in the cloned document
+            const clonedPoster = clonedDoc.querySelector('.poster');
+            if (clonedPoster) {
+              clonedPoster.style.transform = 'none';
+            }
+          }
+        };
+        
+        // Capture the poster element
+        html2canvas(posterElement, options).then(function(canvas) {
+          // Convert canvas to JPG blob
+          canvas.toBlob(function(blob) {
+            // Create download link
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            // Set filename with dealer name and timestamp
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const filename = `${dealerName.replace(/[^a-zA-Z0-9]/g, '_')}_Kabadi_Techno_Poster_${timestamp}.jpg`;
+            
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Cleanup
+            URL.revokeObjectURL(url);
+            
+            // Restore download button
+            if (downloadBtn) {
+              downloadBtn.style.display = 'flex';
+              downloadBtn.innerHTML = originalText;
+              downloadBtn.disabled = false;
+            }
+            
+            // Show success message briefly
+            if (downloadBtn) {
+              const successText = '<span>✅</span><span>Downloaded!</span>';
+              downloadBtn.innerHTML = successText;
+              setTimeout(() => {
+                downloadBtn.innerHTML = originalText;
+              }, 2000);
+            }
+            
+          }, 'image/jpeg', 0.95); // 95% quality JPG
+          
+        }).catch(function(error) {
+          console.error('Error generating image:', error);
+          
+          // Restore download button on error
+          if (downloadBtn) {
+            downloadBtn.style.display = 'flex';
+            downloadBtn.innerHTML = '<span>❌</span><span>Error</span>';
+            downloadBtn.disabled = false;
+            
+            setTimeout(() => {
+              downloadBtn.innerHTML = originalText;
+            }, 3000);
+          }
+          
+          // Fallback to print method
+          alert('Image generation failed. Please try again or use browser print function.');
+        });
+      }, 100);
+    }
+
+    // Add some interactive effects
+    document.addEventListener('DOMContentLoaded', function() {
+      const qrElement = document.querySelector('#dynamic-qr');
+      const dealerNameElement = document.querySelector('.dealer-name');
+      const downloadBtn = document.querySelector('.download-btn');
+      
+      if (qrElement) {
+        qrElement.addEventListener('mouseenter', function() {
+          this.style.transform = 'scale(1.1)';
+          this.style.transition = 'transform 0.3s ease';
+        });
+
+        qrElement.addEventListener('mouseleave', function() {
+          this.style.transform = 'scale(1)';
+        });
+      }
+      
+      // Add subtle animation to dealer name
+      if (dealerNameElement) {
+        dealerNameElement.addEventListener('mouseenter', function() {
+          this.style.background = 'rgba(46, 125, 50, 1)';
+          this.style.transform = 'scale(1.05)';
+          this.style.transition = 'all 0.3s ease';
+        });
+        
+        dealerNameElement.addEventListener('mouseleave', function() {
+          this.style.background = 'rgba(46, 125, 50, 0.9)';
+          this.style.transform = 'scale(1)';
+        });
+      }
+
+      // Download button animation
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', function() {
+          if (!this.disabled) {
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+              this.style.transform = 'scale(1)';
+            }, 150);
+          }
+        });
+      }
+    });
+  </script>
+
 </body>
 </html>
