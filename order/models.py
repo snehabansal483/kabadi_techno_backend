@@ -32,6 +32,7 @@ class Order(models.Model):
     city = models.CharField(max_length=50)
     state = models.CharField(max_length=50)
     country = models.CharField(max_length=50)
+    digipin = models.CharField(max_length=20, blank=True, null=True)
     order_note = models.CharField(max_length=100, blank=True)
     order_total = models.FloatField(null=True)
     tax = models.FloatField(null=True)

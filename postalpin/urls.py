@@ -1,7 +1,7 @@
 from django.urls import path
-from .views import DigiPinAddressCreateView, VerifyDigiPIN
+from .views import encode_digipin_view, decode_digipin_view
 
 urlpatterns = [
-    path('create-address/', DigiPinAddressCreateView.as_view(), name='create-address'),
-    path('verify-digipin/', VerifyDigiPIN.as_view(), name='verify-digipin'),
+    path("encode-digipin/", encode_digipin_view),
+    path("decode-digipin/", decode_digipin_view),
 ]

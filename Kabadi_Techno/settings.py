@@ -61,7 +61,8 @@ INSTALLED_APPS = [
     'homepage',
     'invoice',
     'postalpin',
-    'payment_gateway'
+    'payment_gateway',
+    'new_cvm_latest',
  
 ]
 

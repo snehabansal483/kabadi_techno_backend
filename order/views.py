@@ -68,6 +68,10 @@ class TakeOrderDetails(APIView):
                 order_data['first_name'] = first_name
                 order_data['last_name'] = last_name
                 
+                # Include digipin if provided
+                if 'digipin' in serializer.validated_data:
+                    order_data['digipin'] = serializer.validated_data['digipin']
+                
                 # Create the order instance
                 Order = serializer.create(order_data)
                 Order.ip = request.META.get('REMOTE_ADDR')
@@ -239,6 +243,7 @@ class ViewOrder(APIView):
                 'city': ordeR.city,
                 'state': ordeR.state,
                 'country': ordeR.country,
+                'digipin': ordeR.digipin,
                 'order_note': ordeR.order_note,
                 'total': round(total, 2),
                 'tax': round(tax, 2),
@@ -415,6 +420,7 @@ class order_info(APIView):
             pickup_date = serializer.validated_data["pickup_date"]
             pickup_time = serializer.validated_data["pickup_time"]
             order_note = serializer.validated_data["order_note"]
+            digipin = serializer.validated_data.get("digipin", "")
             ip = request.META.get("REMOTE_ADDR")
 
             # Get cart items grouped by dealer_id
@@ -448,6 +454,7 @@ class order_info(APIView):
                     city=city,
                     state=state,
                     country=country,
+                    digipin=digipin,
                     pickup_date=pickup_date,
                     pickup_time=pickup_time,
                     order_note=order_note,
