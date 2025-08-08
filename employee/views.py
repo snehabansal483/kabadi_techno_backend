@@ -46,52 +46,39 @@ def get_tokens_for_user(user):
         'refresh': str(refresh),
         'access': str(refresh.access_token),
     }
-
 def convert_text_to_qrcode_employee(text, filename, request):
+    # Path to logo
+    logo_path = os.path.join(settings.MEDIA_ROOT, 'cvm_qrcodes', 'logo.png')
+    logo = Image.open(logo_path)
 
-    # taking image which we wants in the QR code center
-    Logo_link = f"{settings.MEDIA_ROOT}/cvm_qrcodes/logo.png"
-
-    logo = Image.open(Logo_link)
-
-    # taking base width
+    # Resize logo
     basewidth = 100
-
-    # adjust image size
     wpercent = (basewidth / float(logo.size[0]))
     hsize = int((float(logo.size[1]) * float(wpercent)))
     logo = logo.resize((basewidth, hsize), Image.Resampling.LANCZOS)
-    QRcode1 = qrcode.QRCode(
-        error_correction=qrcode.constants.ERROR_CORRECT_H
-    )
 
-    # taking url or text
-    data = text
-
-    # adding URL or text to QRcode
-    QRcode1.add_data(data)
-
-    # generating QR code
+    # Generate QR code
+    QRcode1 = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H)
+    QRcode1.add_data(text)
     QRcode1.make()
+    QRimg1 = QRcode1.make_image(fill_color='Black', back_color='white').convert('RGB')
 
-    # taking color name from user
-    QRcolor = 'Black'
-
-    # adding color to QR code
-    QRimg1 = QRcode1.make_image(
-        fill_color=QRcolor, back_color="white").convert('RGB')
-
-    # set size of QR code
-    pos = ((QRimg1.size[0] - logo.size[0]) // 2,
-            (QRimg1.size[1] - logo.size[1]) // 2)
+    # Paste logo
+    pos = ((QRimg1.size[0] - logo.size[0]) // 2, (QRimg1.size[1] - logo.size[1]) // 2)
     QRimg1.paste(logo, pos)
 
-    # save the QR code generated
-    QRimg1.save(f"{settings.MEDIA_ROOT}/accounts/employee/QRs/{filename}.jpg")
-    domain = get_current_site(request).domain
+    # Ensure directory exists
+    qr_folder_path = os.path.join(settings.MEDIA_ROOT, 'accounts', 'employee', 'QRs')
+    os.makedirs(qr_folder_path, exist_ok=True)
 
+    # Save QR code image
+    qr_code_path = os.path.join(qr_folder_path, f'{filename}.jpg')
+    QRimg1.save(qr_code_path)
+
+    # Generate URL
+    domain = get_current_site(request).domain
     qr_code_image_path = f"/accounts/employee/QRs/{filename}.jpg"
-    qr_code_url = f"{domain}/media/accounts/employee/QRs/{filename}.jpg"
+    qr_code_url = f"{domain}/media{qr_code_image_path}"
 
     return qr_code_image_path, qr_code_url
         
