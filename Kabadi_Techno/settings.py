@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'multiselectfield',
     'django_extensions',
     'corsheaders',  
+    'rest_framework_simplejwt.token_blacklist',
     #include your apps here
     'Category',
     'dealer',
@@ -63,6 +64,7 @@ INSTALLED_APPS = [
     'postalpin',
     'payment_gateway',
     'new_cvm_latest',
+    'employee'
  
 ]
 

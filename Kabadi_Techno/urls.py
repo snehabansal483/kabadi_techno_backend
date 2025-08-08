@@ -37,6 +37,7 @@ urlpatterns = [
     path('postalpin/', include('postalpin.urls')),
     path('api/payment/', include('payment_gateway.urls')),
     path('cvm/', include('new_cvm_latest.urls')),
+    path('employee/', include('employee.urls')),
 ]+ static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
