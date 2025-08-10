@@ -179,9 +179,15 @@ def adddealer(request):
         timing = request.data.get('timing', '')
         live_location = request.data.get('live_location', '')
 
+        # ✅ Validate quantity
         if min_qty < 1 or max_qty < 2:
             return Response({'error': 'Validation failed: quantity values are not valid'}, status=400)
 
+        # ✅ Check if mobile already exists
+        if dealer.objects.filter(mobile=mobile).exists():
+            return Response({'error': 'Dealer with this mobile number already exists'}, status=400)
+
+        # ✅ Create dealer
         obj = dealer(
             name=name,
             email=email,
@@ -202,11 +208,8 @@ def adddealer(request):
         })
 
     except Exception as e:
-        return Response({
-            'data': {
-                'error': str(e)  # ✅ FIXED: convert to string
-            }
-        }, status=500)
+        return Response({'error': str(e)}, status=500)
+
 
 # @api_view(['PUT'])
 # def dealerUpdate(request,pk): #View Function for Updating dealers.
