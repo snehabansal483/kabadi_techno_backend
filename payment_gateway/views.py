@@ -558,7 +558,10 @@ def get_all_dealers_with_subscriptions(request):
             if active_subscription:
                 # Get the payment transaction for this subscription (using prefetched data)
                 payment_transaction = active_subscription.payment_transactions.first()
-                
+                payment_screenshot_url = None
+                if payment_transaction and payment_transaction.payment_screenshot:
+                    if hasattr(payment_transaction.payment_screenshot, 'url'):
+                        payment_screenshot_url = request.build_absolute_uri(payment_transaction.payment_screenshot.url)
                 dealer_info['current_subscription'] = {
                     'id': active_subscription.id,
                     'plan_name': active_subscription.plan.name,
@@ -572,7 +575,8 @@ def get_all_dealers_with_subscriptions(request):
                     'payment_transaction_id': payment_transaction.id if payment_transaction else None,
                     'user_transaction_reference': payment_transaction.transaction_id if payment_transaction else None,
                     'payment_verified': payment_transaction.verified if payment_transaction else None,
-                    'payment_method': payment_transaction.payment_method if payment_transaction else None
+                    'payment_method': payment_transaction.payment_method if payment_transaction else None,
+                    'payment_screenshot_url': payment_screenshot_url
                 }
                 dealer_info['marketplace_access'] = True
             
@@ -580,7 +584,10 @@ def get_all_dealers_with_subscriptions(request):
             if latest_subscription and (not active_subscription or latest_subscription.id != active_subscription.id):
                 # Get the payment transaction for this subscription (using prefetched data)
                 latest_payment_transaction = latest_subscription.payment_transactions.first()
-                
+                latest_payment_screenshot_url = None
+                if latest_payment_transaction and latest_payment_transaction.payment_screenshot:
+                    if hasattr(latest_payment_transaction.payment_screenshot, 'url'):
+                        latest_payment_screenshot_url = request.build_absolute_uri(latest_payment_transaction.payment_screenshot.url)
                 dealer_info['latest_subscription'] = {
                     'id': latest_subscription.id,
                     'plan_name': latest_subscription.plan.name,
@@ -592,7 +599,8 @@ def get_all_dealers_with_subscriptions(request):
                     'payment_transaction_id': latest_payment_transaction.id if latest_payment_transaction else None,
                     'user_transaction_reference': latest_payment_transaction.transaction_id if latest_payment_transaction else None,
                     'payment_verified': latest_payment_transaction.verified if latest_payment_transaction else None,
-                    'payment_method': latest_payment_transaction.payment_method if latest_payment_transaction else None
+                    'payment_method': latest_payment_transaction.payment_method if latest_payment_transaction else None,
+                    'payment_screenshot_url': latest_payment_screenshot_url
                 }
             
             dealers_data.append(dealer_info)
