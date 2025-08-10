@@ -58,10 +58,17 @@ class DealerSubscriptionAdmin(admin.ModelAdmin):
 @admin.register(PaymentTransaction)
 class PaymentTransactionAdmin(admin.ModelAdmin):
     list_display = ['dealer_ktid', 'subscription_plan', 'transaction_id', 'amount', 
-                   'payment_method', 'verified', 'payment_status', 'verified_by', 'created_at']
+                   'payment_method', 'verified', 'payment_status', 'verified_by', 'created_at', 'payment_screenshot_tag']
     list_filter = ['payment_method', 'verified', 'payment_status', 'created_at']
     search_fields = ['subscription__dealer__kt_id', 'transaction_id', 'verified_by']
     readonly_fields = ['created_at', 'updated_at']
+
+    def payment_screenshot_tag(self, obj):
+        if obj.payment_screenshot:
+            return format_html('<img src="{}" width="100" style="object-fit:contain;" />', obj.payment_screenshot.url)
+        return "No Screenshot"
+    payment_screenshot_tag.short_description = "Payment Screenshot"
+    payment_screenshot_tag.allow_tags = True
     date_hierarchy = 'created_at'
     actions = ['verify_payments', 'unverify_payments']
     
