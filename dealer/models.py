@@ -2,6 +2,7 @@ from django.db import models
 #from django.contrib.gis.db import models # map
 from django.utils.translation import gettext_lazy as _
 from multiselectfield import MultiSelectField
+from django.core.validators import RegexValidator
 
 MY_CHOICES = (('Paper', 'Paper'),
               ('Plastic', 'Plastic'),
@@ -10,21 +11,43 @@ MY_CHOICES = (('Paper', 'Paper'),
               ('E-waste', 'E-waste'),
               ('Others', 'Others'))
 
+phone_validator = RegexValidator(
+    regex=r'^\+91\d{10}$',
+    message="Mobile number must be in the format +911234567890"
+)
+
 class dealer(models.Model):
-    name = models.CharField(_("dealer Name"),max_length=100)
-    email = models.EmailField(_("Dealer Email"), max_length=100, unique=True,null= True, blank=False)
-    mobile = models.CharField(_("dealer Mobile No."),max_length=10,unique=True,null=True,blank=False)
-    dealing = MultiSelectField(choices=MY_CHOICES, max_choices=3, max_length=300) # if i want to incre then incr the number
-    min_qty = models.IntegerField(_("Minimum Quantity"),)
-    max_qty = models.IntegerField(_("Maximum Quantity"),)
-    pincode = models.CharField(_("dealer Pincode"),max_length=36)
-    #geom = models.PointField(_("dealer Location"),blank=True,null=True,default="POINT(73.729974 20.7711857)", srid=4326)
-    timing = models.CharField(_("Timing"),max_length=100,blank=True,null=True)
-    live_location = models.CharField(_("Live Location"),max_length=100,blank=True,null=True)
+    name = models.CharField(_("Dealer Name"), max_length=100)
+    email = models.EmailField(_("Dealer Email"), max_length=100, unique=True, null=True, blank=False)
+    mobile = models.CharField(
+        _("Dealer Mobile No."),
+        max_length=13,  # +91XXXXXXXXXX
+        unique=True,
+        null=True,
+        blank=False,
+        validators=[phone_validator]
+    )
+    dealing = MultiSelectField(choices=MY_CHOICES, max_choices=3, max_length=300)
+    min_qty = models.IntegerField(_("Minimum Quantity"))
+    max_qty = models.IntegerField(_("Maximum Quantity"))
+    pincode = models.CharField(_("Dealer Pincode"), max_length=36)
+    timing = models.CharField(_("Timing"), max_length=100, blank=True, null=True)
+    live_location = models.CharField(_("Live Location"), max_length=100, blank=True, null=True)
 
-    def _str_(self):
+    def save(self, *args, **kwargs):
+        # Auto-format mobile to +91XXXXXXXXXX
+        if self.mobile:
+            # Remove spaces and special chars
+            num = ''.join(filter(str.isdigit, self.mobile))
+            # If number starts without +91, add it
+            if not num.startswith('91'):
+                num = '91' + num
+            self.mobile = f"+{num}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
         return self.name
-
+    
 class RequestInquiry(models.Model):
     dealer_id = models.ForeignKey(dealer, on_delete=models.CASCADE)
     customer_name = models.CharField(max_length=50)

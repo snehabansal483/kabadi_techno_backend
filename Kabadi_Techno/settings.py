@@ -160,6 +160,10 @@ DATABASES = {
     }
 }
 
+# WhatsApp Cloud API
+WHATSAPP_TOKEN = "EAFeYvF5OpMUBPLDcnOaVNYC7OnEjVkD4dj2KyjfCXlgMlLnOMRZCQNZCX8RVACxDh263bo6W6Pu8cS2063cGcqqO83jubyTd8z8i5SE1PpdUZAwZAD5G1UgDtWgkItGbTPKVeVv4hoXGmwlqZAGZBi1EiuriqZBnZAI8j2dxu5vWYVfQ81aVaEZC0yN9vwWZAm95QttbBJM9ZBawrK4kDBgIHtNZBiXhZBGAxCGOyQQ1yJLr9tVvNewZDZD"
+WHATSAPP_PHONE_NUMBER_ID = "757759467415743"  # e.g. 123456789012345
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

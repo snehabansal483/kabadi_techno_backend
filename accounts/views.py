@@ -314,25 +314,7 @@ class CustomerProfileAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except CustomerProfile.DoesNotExist:
             return Response({"error": "Customer profile not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    # def post(self, request, *args, **kwargs):
-    #     try:
-    #         user_instance = request.user
-
-    #         if CustomerProfile.objects.filter(auth_id=user_instance).exists():
-    #             return Response({"error": "Customer profile already exists."}, status=status.HTTP_400_BAD_REQUEST)
-
-    #         serializer = CustomerProfileSerializer(data=request.data, context={'auth_id': user_instance})
-    #         if serializer.is_valid(raise_exception=True):
-    #             serializer.save()
-    #             return Response({"message": "Customer profile created successfully"}, status=status.HTTP_201_CREATED)
-
-    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    #     except Exception as e:
-    #         import traceback
-    #         traceback.print_exc()
-    #         return Response({"error": f"Something went wrong: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        
     def put(self, request, *args, **kwargs):
         try:
             customer_profile = CustomerProfile.objects.get(auth_id=request.user)
@@ -372,29 +354,6 @@ class DealerProfileAPIView(APIView):
         except DealerProfile.DoesNotExist:
             return Response({"error": "Dealer profile not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    # def post(self, request, *args, **kwargs):
-    #     user_instance = request.user  # Get the authenticated user
-
-    #     # Check if a profile already exists for this user
-    #     if DealerProfile.objects.filter(auth_id=user_instance).exists():
-    #         return Response(
-    #             {"error": "Dealer profile already exists."},
-    #             status=status.HTTP_400_BAD_REQUEST,
-    #         )
-
-    #     # Prepare data for the serializer
-    #     data = request.data.copy()
-
-    #     serializer = DealerProfileSerializer(data=data, context={'auth_id': user_instance})
-
-    #     if serializer.is_valid(raise_exception=True):
-    #         serializer.save()  # Save the profile
-    #         return Response(
-    #             {"message": "Dealer profile created successfully"},
-    #             status=status.HTTP_201_CREATED,
-    #         )
-
-    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, *args, **kwargs):
         try:

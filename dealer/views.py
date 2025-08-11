@@ -256,7 +256,6 @@ class RequestInquiryGet(APIView):
             return Response(serializer.data)
         except dealer.DoesNotExist:
             return Response({"error": "Dealer not found"}, status=404)
-
 class RequestInquiryPost(APIView):
     serializer_class = RequestInquiryPostSerializer
 
@@ -269,16 +268,16 @@ class RequestInquiryPost(APIView):
             try:
                 dealer_obj = dealer.objects.get(id=dealer_id)
                 dealer_email = dealer_obj.email
+                mobile = dealer_obj.mobile  # Must be in +91XXXXXXXXXX format
             except dealer.DoesNotExist:
                 return Response({"error": "Dealer not found"}, status=404)
 
-            # Email content
+            # ================= EMAIL =================
             subject = "New Request Inquiry"
-
             context = {
                 "dealer_name": dealer_obj.name,
-                "customer_name": inquiry.customer_name,  # Replace with your actual logo URL
-                "site": f"{current_site_frontend}"    # Replace with your actual dashboard URL
+                "customer_name": inquiry.customer_name,
+                "site": current_site_frontend
             }
 
             html_content = render_to_string("emails/request_inquiry.html", context)
@@ -304,7 +303,6 @@ class RequestInquiryPost(APIView):
                 )
                 email.attach_alternative(html_content, "text/html")
                 email.send()
-
                 logger.info(f"HTML email sent to {dealer_email}")
             except BadHeaderError:
                 return Response({"error": "Invalid header found."}, status=400)
@@ -312,7 +310,52 @@ class RequestInquiryPost(APIView):
                 logger.error(f"Email sending failed: {e}")
                 return Response({"error": f"Failed to send email: {str(e)}"}, status=500)
 
-            return Response(serializer.data)        
+            # ================= WHATSAPP TEMPLATE =================
+            try:
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": mobile,  # Must be in +91XXXXXXXXXX format
+                    "type": "template",
+                    "template": {
+                        "name": "request_inquiry",  # Your approved template name
+                        "language": {"code": "en"},
+                        "components": [
+                            {
+                                "type": "body",
+                                "parameters": [
+                                    {"type": "text", "text": dealer_obj.name},            # {{1}}
+                                    {"type": "text", "text": inquiry.customer_name},     # {{2}}
+                                    {"type": "text", "text": inquiry.phone},             # {{3}}
+                                    {"type": "text", "text": inquiry.email},             # {{4}}
+                                    {"type": "text", "text": inquiry.itemName},          # {{5}}
+                                    {"type": "text", "text": str(inquiry.quantity)},     # {{6}}
+                                    {"type": "text", "text": inquiry.description},       # {{7}}
+                                    {"type": "text", "text": current_site_frontend}      # {{8}}
+                                ]
+                            }
+                        ]
+                    }
+                }
+
+                headers = {
+                    "Authorization": f"Bearer {settings.WHATSAPP_TOKEN}",
+                    "Content-Type": "application/json"
+                }
+
+                url = f"https://graph.facebook.com/v17.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+                response = requests.post(url, json=payload, headers=headers)
+
+                logger.info(f"WhatsApp API Status: {response.status_code}")
+                logger.info(f"WhatsApp API Response: {response.text}")
+
+                if response.status_code == 200:
+                    logger.info(f"WhatsApp template message sent to {mobile}")
+                else:
+                    logger.error(f"WhatsApp sending failed: {response.text}")
+
+            except Exception as e:
+                logger.error(f"WhatsApp sending failed: {e}")
+
 # class Getdealers(generics.ListAPIView): #View Function for getting dealers by Longitude & Latitude.
 #     queryset = dealer.objects.all()
 #     serializer_class = dealerSerializer
