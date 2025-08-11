@@ -18,12 +18,15 @@ class dealerAdmin(ImportExportModelAdmin):
 
 @admin_thumbnails.thumbnail('itemPic')
 class RequestInquiryAdmin(admin.ModelAdmin):
-    def thumbnail(self, object):
-        return format_html('<img src="{}" width="50"">'.format(object.itemPic.url))
+    def thumbnail(self, obj):
+        if obj.itemPic:  # ✅ Check if file exists
+            return format_html('<img src="{}" width="50" />', obj.itemPic.url)
+        return "No Image"  # Or return a placeholder image
     thumbnail.short_description = "ItemPic"
-    list_display= ('id', 'dealer_id', 'customer_name', 'email', 'itemName', 'thumbnail', 'quantity')
+
+    list_display = ('id', 'dealer_id', 'customer_name', 'email', 'itemName', 'thumbnail', 'quantity')
     list_display_links = ('id', 'dealer_id', 'customer_name', 'email', 'itemName', 'thumbnail')
-    ordering=()
+    ordering = ()
     filter_horizontal = ()
     list_filter = ()
     fieldsets = ()
