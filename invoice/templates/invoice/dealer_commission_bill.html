@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Dealer Commission Bill - {{ commission.dealer.kt_id }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }
+        .commission-details { margin: 20px 0; }
+        .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .table th { background-color: #f2f2f2; }
+        .total { font-weight: bold; font-size: 1.2em; }
+        .status-paid { color: green; }
+        .status-unpaid { color: red; }
+        .status-overdue { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Kabadi Techno - Commission Bill</h1>
+        <h2>Dealer: {{ commission.dealer.kt_id }}</h2>
+        <p>{{ commission.dealer.auth_id.full_name }}</p>
+    </div>
+
+    <div class="commission-details">
+        <h3>Commission Details</h3>
+        <p><strong>Calculation Date:</strong> {{ commission.calculation_date }}</p>
+        <p><strong>Payment Due Date:</strong> {{ commission.payment_due_date }}</p>
+        <p><strong>Status:</strong> 
+            <span class="status-{{ commission.status|lower }}{% if commission.is_overdue %} status-overdue{% endif %}">
+                {{ commission.status }}{% if commission.is_overdue %} (OVERDUE){% endif %}
+            </span>
+        </p>
+        <p><strong>Days Until Due:</strong> {{ commission.days_until_due }} days</p>
+    </div>
+
+    <div class="order-details">
+        <h3>Orders Included in This Commission</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Order Number</th>
+                    <th>Order Date</th>
+                    <th>Order Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>{{ order.order_number }}</td>
+                    <td>{{ order.created_at|date:"Y-m-d" }}</td>
+                    <td>Rs.{{ order.order_total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="commission-summary">
+        <h3>Commission Summary</h3>
+        <table class="table">
+            <tr>
+                <td><strong>Total Order Amount:</strong></td>
+                <td>Rs.{{ commission.total_order_amount|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td><strong>Commission Rate:</strong></td>
+                <td>1%</td>
+            </tr>
+            <tr class="total">
+                <td><strong>Commission Amount:</strong></td>
+                <td>Rs.{{ commission.commission_amount|floatformat:2 }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="payment-instructions">
+        <h3>Payment Instructions</h3>
+        <p>Please pay the commission amount by {{ commission.payment_due_date }}.</p>
+        <p>Failure to pay within 30 days will result in account deactivation.</p>
+        <p>For payment queries, contact: support@kabadi-techno.com</p>
+    </div>
+
+    <div class="footer">
+        <p style="text-align: center; margin-top: 40px; color: #666;">
+            Generated on {{ today|date:"Y-m-d H:i:s" }} | Kabadi Techno Commission System
+        </p>
+    </div>
+</body>
+</html>
