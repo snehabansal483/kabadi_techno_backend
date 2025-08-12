@@ -29,6 +29,15 @@ def dealer_invoice_view(request, order_number):
             'order_number': order_number
         })
 
+    # Only allow invoice for pending and accepted status
+    if order.status not in ["Pending", "Confirmed"]:
+        return render(request, 'invoice/dealer_invoice.html', {
+            'order': None,
+            'order_found': False,
+            'order_number': order_number,
+            'message': "Invoice not available for cancelled orders."
+        })
+
     # Calculate line totals and grand total
     grand_total = 0
     for item in order_items:
@@ -41,7 +50,6 @@ def dealer_invoice_view(request, order_number):
         'grand_total': grand_total,
         'order_found': True,
         'order_number': order_number,
-        
     }
 
     if request.GET.get("download") == "pdf":
