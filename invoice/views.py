@@ -30,7 +30,7 @@ def dealer_invoice_view(request, order_number):
         })
 
     # Only allow invoice for pending and accepted status
-    if order.status not in ["Pending", "Confirmed"]:
+    if order.status in ["Cancelled by Customer", "Cancelled"]:
         return render(request, 'invoice/dealer_invoice.html', {
             'order': None,
             'order_found': False,
