@@ -700,6 +700,7 @@ def get_all_payment_details(request):
             ]
 
             payment_details.append({
+                'id':transaction.id,
                 'transaction_id': transaction.transaction_id,
                 'amount': str(transaction.amount),
                 'payment_method': transaction.payment_method,

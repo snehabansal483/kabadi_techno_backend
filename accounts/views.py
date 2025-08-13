@@ -525,3 +525,151 @@ class MyQRCode(APIView):
 
         except Exception as e:
             return Response({"error": f"Something went wrong: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UserActivationAPIView(APIView):
+    """
+    API view for admin users to activate or deactivate user accounts.
+    Only accessible by admin users (is_admin=True).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        GET endpoint to toggle user activation status.
+        Query parameters:
+        - user_id: ID of the user to activate/deactivate
+        - action: 'activate' or 'deactivate'
+        """
+        try:
+            # Check if the requesting user is an admin
+            if not request.user.is_admin:
+                return Response(
+                    {"error": "Permission denied. Only admin users can perform this action."}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Get query parameters
+            user_id = request.query_params.get('user_id')
+            action = request.query_params.get('action')
+            
+            # Validate required parameters
+            if not user_id:
+                return Response(
+                    {"error": "user_id parameter is required."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if not action or action not in ['activate', 'deactivate']:
+                return Response(
+                    {"error": "action parameter is required and must be 'activate' or 'deactivate'."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Get the target user
+            try:
+                target_user = Account.objects.get(id=user_id)
+            except Account.DoesNotExist:
+                return Response(
+                    {"error": f"User with ID {user_id} not found."}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Prevent admin from deactivating themselves
+            if target_user.id == request.user.id and action == 'deactivate':
+                return Response(
+                    {"error": "You cannot deactivate your own account."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Perform the action
+            if action == 'activate':
+                target_user.is_active = True
+                action_performed = "activated"
+            else:  # deactivate
+                target_user.is_active = False
+                action_performed = "deactivated"
+            
+            target_user.save()
+            
+            return Response({
+                "message": f"User {target_user.email} has been {action_performed} successfully.",
+                "user_data": {
+                    "id": target_user.id,
+                    "email": target_user.email,
+                    "full_name": target_user.full_name,
+                    "is_active": target_user.is_active,
+                    "account_type": target_user.account_type
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AdminUserListAPIView(APIView):
+    """
+    API view for admin users to get a list of all users with their activation status.
+    Only accessible by admin users (is_admin=True).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        GET endpoint to retrieve all users with their activation status.
+        Query parameters (optional):
+        - account_type: Filter by account type ('Customer', 'Dealer')
+        - is_active: Filter by activation status (true/false)
+        """
+        try:
+            # Check if the requesting user is an admin
+            if not request.user.is_admin:
+                return Response(
+                    {"error": "Permission denied. Only admin users can perform this action."}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Get all users
+            users = Account.objects.all()
+            
+            # Apply filters if provided
+            account_type = request.query_params.get('account_type')
+            is_active_param = request.query_params.get('is_active')
+            
+            if account_type:
+                users = users.filter(account_type=account_type)
+            
+            if is_active_param is not None:
+                is_active_bool = is_active_param.lower() == 'true'
+                users = users.filter(is_active=is_active_bool)
+            
+            # Serialize the user data
+            user_data = []
+            for user in users:
+                user_data.append({
+                    "id": user.id,
+                    "email": user.email,
+                    "full_name": user.full_name,
+                    "phone_number": user.phone_number,
+                    "account_type": user.account_type,
+                    "account_role": user.account_role,
+                    "is_active": user.is_active,
+                    "is_admin": user.is_admin,
+                    "date_joined": user.date_joined.isoformat() if user.date_joined else None,
+                    "last_login": user.last_login.isoformat() if user.last_login else None
+                })
+            
+            return Response({
+                "message": "Users retrieved successfully.",
+                "total_users": len(user_data),
+                "users": user_data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

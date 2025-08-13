@@ -13,6 +13,8 @@ urlpatterns = [
     path('password-reset/', PasswordResetAPIView.as_view(), name='password_reset'),
     path('reset-password/<str:uidb64>/<str:token>/', PasswordResetConfirmAPIView.as_view(), name='password_reset_confirm'),
     path('activate/<str:uidb64>/<str:token>/', ActivateAccountAPIView.as_view(), name='activate_account'),
+    path('user-activation/', UserActivationAPIView.as_view(), name='user_activation'),
+    path('admin-user-list/', AdminUserListAPIView.as_view(), name='admin_user_list'),
     path('address/', AddressAPIView.as_view(), name='address'),
     path('address/<int:id>/', AddressAPIView.as_view(), name='address'),
 

@@ -13,7 +13,7 @@ class LoginSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = Account
-        fields = ['id', 'full_name', 'email', 'phone_number', 'account_type', 'account_role', 'is_admin']
+        fields = ['id', 'full_name', 'email', 'phone_number', 'account_type', 'account_role', 'is_admin','is_active']
 
 class AccountSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(write_only=True)
