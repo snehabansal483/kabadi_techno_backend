@@ -208,6 +208,14 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
             status='Unpaid', 
             payment_due_date__lt=today
         ).count()
+
+        payment_qr_url = (
+        f"upi://pay?"
+        f"pa=snehabansal481@okhdfcbank&"
+        f"pn=Sneha%20Bansal&"
+        f"am={total_unpaid_amount}&"  # Commission amount passed here
+        f"cu=INR"
+    )
         
         return Response({
             'dealer': {
@@ -224,6 +232,7 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
                 'total_paid_amount': total_paid_amount,
                 'total_unpaid_amount': total_unpaid_amount
             },
+            'payment_qr_url': payment_qr_url,
             'commissions': DealerCommissionSerializer(commissions, many=True).data
         })
     
