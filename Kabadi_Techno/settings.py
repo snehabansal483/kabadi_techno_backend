@@ -161,10 +161,10 @@ DATABASES = {
 }
 
 # WhatsApp Cloud API
-WHATSAPP_TOKEN = "EAFeYvF5OpMUBPLDcnOaVNYC7OnEjVkD4dj2KyjfCXlgMlLnOMRZCQNZCX8RVACxDh263bo6W6Pu8cS2063cGcqqO83jubyTd8z8i5SE1PpdUZAwZAD5G1UgDtWgkItGbTPKVeVv4hoXGmwlqZAGZBi1EiuriqZBnZAI8j2dxu5vWYVfQ81aVaEZC0yN9vwWZAm95QttbBJM9ZBawrK4kDBgIHtNZBiXhZBGAxCGOyQQ1yJLr9tVvNewZDZD"
+WHATSAPP_TOKEN = "EAFeYvF5OpMUBPKnfR7DbWYhv4gdysm6ZBP9dj8ZCvmswEUHchh2Uf3ZB9zneZBaqig8iP7PGVoItZCiPWmmNfolnQGNb3KVguVL4g2QwFo2yRjaZBp9ecNUgn3A7v8BLXL4rbsz04UyZBeJ9xZCa0X8bRzzhUSlx3hfNoDW1Ok6utObbXOrnOeehk4iLIkrG3uXpxr9uK7WdDUsJcbZAZBWTer1YuEbgjqgku5czhlx4mFsth7nwZDZD"
 WHATSAPP_PHONE_NUMBER_ID = "757759467415743"  # e.g. 123456789012345
 
-
+CURRENT_SITE_FRONTEND = "http://localhost:5173"  # Update this to your frontend URL
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
