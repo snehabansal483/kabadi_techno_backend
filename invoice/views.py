@@ -1,5 +1,5 @@
 from order.models import Order, OrderProduct  
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.template.loader import get_template
 from django.http import HttpResponse
 from xhtml2pdf import pisa
@@ -8,15 +8,27 @@ import os
 
 # Commission-related imports
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
-from .models import DealerCommission
-from .serializers import DealerCommissionSerializer
+from .models import DealerCommission, CommissionPaymentTransaction
+from .serializers import DealerCommissionSerializer, CommissionPaymentTransactionSerializer, SubmitCommissionPaymentSerializer
 from accounts.models import DealerProfile
+
+class IsAdminUserCustom(BasePermission):
+    """
+    Custom permission to only allow admin users to access the view.
+    Requires the user to be authenticated and have is_admin=True.
+    """
+    def has_permission(self, request, view):
+        return bool(
+            request.user and 
+            request.user.is_authenticated and 
+            getattr(request.user, 'is_admin', False)
+        )
 
 def dealer_invoice_view(request, order_number):
     try:
@@ -240,6 +252,24 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
         f"cu=INR"
     )
         
+        # Include payment transaction details if available
+        commissions_data = []
+        for commission in commissions:
+            payment_transaction = CommissionPaymentTransaction.objects.filter(commission=commission).order_by('-created_at').first()
+            transaction_data = {
+                'id': payment_transaction.id,
+                'transaction_id': payment_transaction.transaction_id,
+                'amount': str(payment_transaction.amount),
+                'payment_method': payment_transaction.payment_method,
+                'payment_screenshot': payment_transaction.payment_screenshot.url,
+                'created_at': payment_transaction.created_at,
+                'status': 'pending_verification' if not payment_transaction.verified else 'verified'
+            } if payment_transaction else None
+
+            commission_data = DealerCommissionSerializer(commission).data
+            commission_data['payment_transaction'] = transaction_data
+            commissions_data.append(commission_data)
+
         return Response({
             'dealer': {
                 'kt_id': dealer.kt_id,
@@ -256,7 +286,7 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
                 'total_unpaid_amount': total_unpaid_amount
             },
             'payment_qr_url': payment_qr_url,
-            'commissions': DealerCommissionSerializer(commissions, many=True).data
+            'commissions': commissions_data
         })
     
     @action(detail=False, methods=['post'])
@@ -415,6 +445,10 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
             status='Unpaid'
         ).first()
         
+        # # Ensure no duplicate entries are created
+        # if DealerCommission.objects.filter(dealer=dealer, calculation_date=end_date).exists():
+        #     return
+        
         # Calculate total order amount and collect order numbers
         total_amount = Decimal('0.00')
         order_numbers = []
@@ -529,6 +563,10 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
             status='Unpaid'
         ).first()
         
+        # Ensure no duplicate entries are created for the next month
+        if DealerCommission.objects.filter(dealer=dealer, calculation_date=start_date).exists():
+            return None
+        
         if existing_unpaid_today:
             # Update existing unpaid commission with new orders (merge new orders)
             all_order_numbers = list(set(existing_unpaid_today.order_numbers + order_numbers))
@@ -552,4 +590,93 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
                 auto_generated_after_payment=True  # Mark as auto-generated
             )
             return next_commission
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_commission_payment(request):
+    """Submit payment details for a commission"""
+    try:
+        dealer = DealerProfile.objects.get(auth_id=request.user)
+
+        # Add context for validation
+        serializer = SubmitCommissionPaymentSerializer(data=request.data, context={'request': request})
+
+        if serializer.is_valid():
+            payment_transaction = serializer.save()
+
+            # Update payment reference in commission
+            commission = payment_transaction.commission
+            commission.payment_reference = payment_transaction.transaction_id
+            commission.status = 'Unpaid'  # Set to Unpaid until admin verification
+            commission.save()
+
+            response_serializer = CommissionPaymentTransactionSerializer(payment_transaction)
+            return Response({
+                'message': 'Commission payment details submitted successfully. Awaiting admin verification.',
+                'payment_transaction': response_serializer.data,
+                'status': 'pending_verification'
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    except DealerProfile.DoesNotExist:
+        return Response(
+            {'error': 'Dealer profile not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUserCustom])
+def verify_commission_payment(request, payment_id):
+    """Admin endpoint to verify commission payment"""
+    try:
+        payment_transaction = get_object_or_404(CommissionPaymentTransaction, id=payment_id)
+        action = request.data.get('action')  # 'approve' or 'reject'
+        notes = request.data.get('notes', '')
+
+        if action == 'approve':
+            # Verify the payment
+            payment_transaction.verified = True
+            payment_transaction.verified_by = request.user.username
+            payment_transaction.verified_at = timezone.now()
+            payment_transaction.notes = notes
+            payment_transaction.save()
+
+            # Update commission status
+            commission = payment_transaction.commission
+            commission.status = 'Paid'  # Change status to Paid after verification
+            commission.save()
+
+            return Response({
+                'message': 'Payment verified successfully',
+                'payment_transaction_id': payment_transaction.id,
+                'status': 'verified'
+            })
+
+        elif action == 'reject':
+            payment_transaction.notes = notes
+            payment_transaction.save()
+
+            # Update commission status
+            commission = payment_transaction.commission
+            commission.status = 'Rejected'
+            commission.save()
+
+            return Response({
+                'message': 'Payment rejected',
+                'payment_transaction_id': payment_transaction.id,
+                'status': 'rejected'
+            })
+
+        else:
+            return Response(
+                {'error': 'Invalid action. Use "approve" or "reject"'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    except CommissionPaymentTransaction.DoesNotExist:
+        return Response(
+            {'error': 'Payment transaction not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
 

@@ -56,3 +56,16 @@ class DealerCommission(models.Model):
     def order_count(self):
         """Get count of orders in this commission"""
         return len(self.order_numbers) if self.order_numbers else 0
+
+class CommissionPaymentTransaction(models.Model):
+    """Model for storing commission payment transactions"""
+    commission = models.ForeignKey(DealerCommission, on_delete=models.CASCADE, related_name="payment_transactions")
+    transaction_id = models.CharField(max_length=100, unique=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_method = models.CharField(max_length=50)
+    payment_screenshot = models.ImageField(upload_to="commission_payments/screenshots/", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    verified = models.BooleanField(default=False)  # Field to track verification status
+
+    def __str__(self):
+        return f"Transaction {self.transaction_id} for Commission {self.commission.id}"
