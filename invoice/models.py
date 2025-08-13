@@ -18,6 +18,7 @@ class DealerCommission(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="Unpaid")
     calculation_date = models.DateField(default=timezone.now)
     payment_due_date = models.DateField()
+    auto_generated_after_payment = models.BooleanField(default=False)  # Track if generated after payment
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

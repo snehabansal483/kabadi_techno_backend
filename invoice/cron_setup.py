@@ -11,6 +11,9 @@ To set up automated commission calculation and dealer deactivation:
 # Check for overdue dealers daily (every day at 3:00 AM)
 0 3 * * * /path/to/your/python /path/to/manage.py deactivate_overdue_dealers
 
+# Generate next month commissions for dealers who paid within 30 days (daily at 4:00 AM)
+0 4 * * * /path/to/your/python /path/to/manage.py generate_next_month_commissions
+
 2. Or use Django-crontab package:
 
 Install: pip install django-crontab
@@ -26,6 +29,7 @@ Add to settings.py:
 CRONJOBS = [
     ('0 2 1 * *', 'invoice.management.commands.calculate_commissions.Command'),
     ('0 3 * * *', 'invoice.management.commands.deactivate_overdue_dealers.Command'),
+    ('0 4 * * *', 'invoice.management.commands.generate_next_month_commissions.Command'),
 ]
 
 Then run:
@@ -52,3 +56,8 @@ def calculate_monthly_commissions():
 def check_overdue_dealers():
     """Celery task to deactivate overdue dealers"""
     call_command('deactivate_overdue_dealers')
+
+@shared_task  
+def generate_next_month_commissions():
+    """Celery task to generate next month commissions for dealers who paid within 30 days"""
+    call_command('generate_next_month_commissions')

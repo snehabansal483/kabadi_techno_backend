@@ -42,17 +42,24 @@ class Command(BaseCommand):
             # Check if commission already exists for this period
             existing_commission = DealerCommission.objects.filter(
                 dealer=dealer,
-                calculation_date=end_date
+                calculation_date=end_date,
+                status='Unpaid'  # Only get unpaid commissions
             ).first()
 
-            # Get all orders for this dealer in the billing period
+            # Get orders for this dealer that haven't been included in any PAID commission yet
+            paid_commissions = DealerCommission.objects.filter(dealer=dealer, status='Paid')
+            included_order_numbers = set()
+            for comm in paid_commissions:
+                included_order_numbers.update(comm.order_numbers)
+
+            # Get all orders for this dealer in the billing period (excluding orders from paid commissions)
             orders = Order.objects.filter(
                 dealer_id=dealer.id,
                 created_at__date__gte=start_date,
                 created_at__date__lte=end_date,
                 is_ordered=True,
                 status__in=['Confirmed', 'Completed']
-            )
+            ).exclude(order_number__in=included_order_numbers)
 
             if not orders.exists():
                 self.stdout.write(f'No orders found for dealer {dealer.kt_id} in the period')
@@ -89,27 +96,17 @@ class Command(BaseCommand):
                 payment_due_date = end_date + timedelta(days=30)
 
                 if existing_commission:
-                    # Update existing commission record
-                    old_amount = existing_commission.commission_amount
+                    # Update existing unpaid commission record
                     existing_commission.order_numbers = order_numbers
                     existing_commission.total_order_amount = total_amount
                     existing_commission.commission_amount = commission_amount
                     existing_commission.payment_due_date = payment_due_date
-                    
-                    # If commission amount increased, reset status to Unpaid
-                    if commission_amount > old_amount:
-                        existing_commission.status = 'Unpaid'
-                        status_msg = " (status reset to Unpaid due to increased amount)"
-                    else:
-                        status_msg = ""
-                    
                     existing_commission.save()
                     
                     commissions_created += 1
                     self.stdout.write(
                         f'Commission updated for dealer {dealer.kt_id}: '
-                        f'Amount: {commission_amount}, Orders: {len(order_numbers)} '
-                        f'(was {old_amount}){status_msg}'
+                        f'Amount: {commission_amount}, Orders: {len(order_numbers)}'
                     )
                 else:
                     # Create new commission record

@@ -152,16 +152,39 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def mark_as_paid(self, request, pk=None):
         """
-        Mark a commission as paid
+        Mark a commission as paid and generate next month's commission if applicable
         """
         commission = self.get_object()
+        
+        # Check if payment is within 30 days of due date
+        days_until_due = commission.days_until_due
+        payment_within_30_days = days_until_due >= 0  # Not overdue
+        
+        # Mark current commission as paid
         commission.status = 'Paid'
         commission.save()
         
-        return Response({
+        response_data = {
             'status': 'success',
             'message': f'Commission for dealer {commission.dealer.kt_id} marked as paid'
-        })
+        }
+        
+        # If paid within 30 days, generate next month's commission
+        if payment_within_30_days:
+            next_commission = self._generate_next_month_commission(commission.dealer)
+            if next_commission:
+                response_data['next_commission_generated'] = True
+                response_data['next_commission_id'] = next_commission.id
+                response_data['next_commission_amount'] = str(next_commission.commission_amount)
+                response_data['message'] += f'. Next month commission generated with amount {next_commission.commission_amount}'
+            else:
+                response_data['next_commission_generated'] = False
+                response_data['message'] += '. No new orders found for next month commission'
+        else:
+            response_data['next_commission_generated'] = False
+            response_data['message'] += '. Payment was overdue, next commission not auto-generated'
+        
+        return Response(response_data)
     
     @action(detail=False, methods=['get'])
     def dealer_summary(self, request):
@@ -312,6 +335,50 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
             'commission_amount': commission_amount
         })
     
+    @action(detail=False, methods=['post'])
+    def generate_next_month_commission(self, request):
+        """
+        Manually generate next month commission for a dealer
+        """
+        dealer_id = request.data.get('dealer_id')
+        if not dealer_id:
+            return Response(
+                {'error': 'dealer_id is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Try to get dealer by ID first, then by kt_id if it's not a number
+            try:
+                dealer_id_int = int(dealer_id)
+                dealer = DealerProfile.objects.get(id=dealer_id_int)
+            except (ValueError, TypeError):
+                # If dealer_id is not a number, try kt_id
+                dealer = DealerProfile.objects.get(kt_id=dealer_id)
+        except DealerProfile.DoesNotExist:
+            return Response(
+                {'error': f'Dealer not found with ID or kt_id: {dealer_id}'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Generate next month commission
+        next_commission = self._generate_next_month_commission(dealer)
+        
+        if next_commission:
+            return Response({
+                'status': 'success',
+                'message': f'Next month commission generated for dealer {dealer.kt_id}',
+                'commission_id': next_commission.id,
+                'commission_amount': next_commission.commission_amount,
+                'order_count': len(next_commission.order_numbers),
+                'payment_due_date': next_commission.payment_due_date
+            })
+        else:
+            return Response({
+                'status': 'no_orders',
+                'message': f'No new orders found for dealer {dealer.kt_id} to generate commission'
+            })
+    
     def _auto_update_commission(self, dealer):
         """
         Automatically update commission calculation for dealer with partial payment support
@@ -322,22 +389,30 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=30)
         
-        # Get all orders for this dealer in the period
+        # Get orders for this dealer that haven't been included in any PAID commission yet
+        # Only exclude orders from paid commissions, not unpaid ones
+        paid_commissions = DealerCommission.objects.filter(dealer=dealer, status='Paid')
+        included_order_numbers = set()
+        for comm in paid_commissions:
+            included_order_numbers.update(comm.order_numbers)
+        
+        # Get orders for this dealer in the period that aren't in paid commissions
         orders = Order.objects.filter(
             dealer_id=dealer.id,
             created_at__date__gte=start_date,
             created_at__date__lte=end_date,
             is_ordered=True,
             status__in=['Confirmed', 'Completed']
-        )
+        ).exclude(order_number__in=included_order_numbers)
         
         if not orders.exists():
             return
         
-        # Check existing commission for today
+        # Check existing UNPAID commission for today
         existing_commission = DealerCommission.objects.filter(
             dealer=dealer,
-            calculation_date=end_date
+            calculation_date=end_date,
+            status='Unpaid'
         ).first()
         
         # Calculate total order amount and collect order numbers
@@ -371,32 +446,14 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
         payment_due_date = end_date + timedelta(days=30)
         
         if existing_commission:
-            # There's already a commission for today
-            # Check if there are new orders
-            existing_orders = set(existing_commission.order_numbers)
-            current_orders = set(order_numbers)
-            new_orders = current_orders - existing_orders
-            
-            if new_orders:
-                # There are new orders to add
-                if existing_commission.status == 'Paid':
-                    # If the existing commission is paid, we still update it with new orders
-                    # This creates a new unpaid amount for the additional orders
-                    existing_commission.order_numbers = order_numbers  # All orders
-                    existing_commission.total_order_amount = total_amount  # Total amount
-                    existing_commission.commission_amount = commission_amount  # Total commission
-                    existing_commission.status = 'Unpaid'  # Reset to unpaid since new orders added
-                    existing_commission.payment_due_date = payment_due_date
-                    existing_commission.save()
-                else:
-                    # Update existing unpaid commission with all orders
-                    existing_commission.order_numbers = order_numbers
-                    existing_commission.total_order_amount = total_amount
-                    existing_commission.commission_amount = commission_amount
-                    existing_commission.payment_due_date = payment_due_date
-                    existing_commission.save()
+            # Update existing UNPAID commission with new orders
+            existing_commission.order_numbers = order_numbers
+            existing_commission.total_order_amount = total_amount
+            existing_commission.commission_amount = commission_amount
+            existing_commission.payment_due_date = payment_due_date
+            existing_commission.save()
         else:
-            # Create new commission record
+            # Create new commission record (only if no unpaid commission exists)
             DealerCommission.objects.create(
                 dealer=dealer,
                 order_numbers=order_numbers,
@@ -406,4 +463,93 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
                 payment_due_date=payment_due_date,
                 status='Unpaid'
             )
+
+    def _generate_next_month_commission(self, dealer):
+        """
+        Generate next month's commission for a dealer after they pay current commission
+        """
+        from datetime import timedelta
+        
+        # Calculate period for next month (next 30 days from today)
+        start_date = timezone.now().date()
+        
+        # Get orders for this dealer that haven't been included in any PAID commission yet
+        # Only exclude orders from paid commissions, not unpaid ones
+        paid_commissions = DealerCommission.objects.filter(dealer=dealer, status='Paid')
+        included_order_numbers = set()
+        for comm in paid_commissions:
+            included_order_numbers.update(comm.order_numbers)
+        
+        # Get recent orders (last 30 days) that haven't been included in any PAID commission yet
+        recent_orders = Order.objects.filter(
+            dealer_id=dealer.id,
+            created_at__date__gte=start_date - timedelta(days=30),  # Look back 30 days for new orders
+            created_at__date__lte=start_date,  # Up to today
+            is_ordered=True,
+            status__in=['Confirmed', 'Completed']
+        ).exclude(order_number__in=included_order_numbers)
+        
+        if not recent_orders.exists():
+            return None
+        
+        # Calculate total order amount and collect order numbers
+        total_amount = Decimal('0.00')
+        order_numbers = []
+        
+        for order in recent_orders:
+            # Use order.order_total if available, otherwise calculate from products
+            if order.order_total:
+                order_total = Decimal(str(order.order_total))
+            else:
+                # Calculate from order products if order_total is not set
+                order_products = OrderProduct.objects.filter(order=order)
+                order_total = Decimal('0.00')
+                for product in order_products:
+                    if product.total_amount:
+                        order_total += Decimal(str(product.total_amount))
+                    else:
+                        # Fallback calculation: quantity * price
+                        product_total = Decimal(str(product.quantity)) * Decimal(str(product.price))
+                        order_total += product_total
+            
+            total_amount += order_total
+            order_numbers.append(order.order_number)
+        
+        if total_amount <= 0:
+            return None
+        
+        # Calculate 1% commission
+        commission_amount = total_amount * Decimal('0.01')
+        payment_due_date = start_date + timedelta(days=30)
+        
+        # Check if there's already an UNPAID commission for today for this dealer
+        existing_unpaid_today = DealerCommission.objects.filter(
+            dealer=dealer,
+            calculation_date=start_date,
+            status='Unpaid'
+        ).first()
+        
+        if existing_unpaid_today:
+            # Update existing unpaid commission with new orders (merge new orders)
+            all_order_numbers = list(set(existing_unpaid_today.order_numbers + order_numbers))
+            existing_unpaid_today.order_numbers = all_order_numbers
+            existing_unpaid_today.total_order_amount += total_amount
+            existing_unpaid_today.commission_amount += commission_amount
+            existing_unpaid_today.payment_due_date = payment_due_date
+            existing_unpaid_today.auto_generated_after_payment = True
+            existing_unpaid_today.save()
+            return existing_unpaid_today
+        else:
+            # Create new commission record for next month
+            next_commission = DealerCommission.objects.create(
+                dealer=dealer,
+                order_numbers=order_numbers,
+                total_order_amount=total_amount,
+                commission_amount=commission_amount,
+                calculation_date=start_date,
+                payment_due_date=payment_due_date,
+                status='Unpaid',
+                auto_generated_after_payment=True  # Mark as auto-generated
+            )
+            return next_commission
 
