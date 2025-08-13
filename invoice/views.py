@@ -681,13 +681,14 @@ def verify_commission_payment(request, payment_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminUserCustom])
 def get_all_payment_details(request):
-    """Admin endpoint to retrieve all commission payment details with status and order details"""
+    """Admin endpoint to retrieve all commission payment details with status, order, and dealer details"""
     try:
-        payment_transactions = CommissionPaymentTransaction.objects.select_related('commission').all()
+        payment_transactions = CommissionPaymentTransaction.objects.select_related('commission__dealer').all()
         payment_details = []
 
         for transaction in payment_transactions:
             commission = transaction.commission
+            dealer = commission.dealer
             orders = Order.objects.filter(order_number__in=commission.order_numbers)
             order_details = [
                 {
@@ -706,6 +707,13 @@ def get_all_payment_details(request):
                 'verified': transaction.verified,
                 'notes': transaction.notes,
                 'commission_status': commission.status,
+                'dealer': {
+                    'id': dealer.id,
+                    'kt_id': dealer.kt_id,
+                    'name': dealer.auth_id.full_name if dealer.auth_id else '',
+                    'email': dealer.auth_id.email if dealer.auth_id else '',
+                    'is_active': dealer.auth_id.is_active if dealer.auth_id else False
+                },
                 'order_details': order_details
             })
 
