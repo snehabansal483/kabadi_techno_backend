@@ -637,8 +637,6 @@ def verify_commission_payment(request, payment_id):
         if action == 'approve':
             # Verify the payment
             payment_transaction.verified = True
-            payment_transaction.verified_by = request.user.username
-            payment_transaction.verified_at = timezone.now()
             payment_transaction.notes = notes
             payment_transaction.save()
 
@@ -678,5 +676,47 @@ def verify_commission_payment(request, payment_id):
         return Response(
             {'error': 'Payment transaction not found'}, 
             status=status.HTTP_404_NOT_FOUND
+        )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUserCustom])
+def get_all_payment_details(request):
+    """Admin endpoint to retrieve all commission payment details with status and order details"""
+    try:
+        payment_transactions = CommissionPaymentTransaction.objects.select_related('commission').all()
+        payment_details = []
+
+        for transaction in payment_transactions:
+            commission = transaction.commission
+            orders = Order.objects.filter(order_number__in=commission.order_numbers)
+            order_details = [
+                {
+                    'order_number': order.order_number,
+                    'status': order.status,
+                    'total_amount': order.order_total,
+                    'created_at': order.created_at
+                } for order in orders
+            ]
+
+            payment_details.append({
+                'transaction_id': transaction.transaction_id,
+                'amount': str(transaction.amount),
+                'payment_method': transaction.payment_method,
+                'payment_screenshot': transaction.payment_screenshot.url if transaction.payment_screenshot else None,
+                'verified': transaction.verified,
+                'notes': transaction.notes,
+                'commission_status': commission.status,
+                'order_details': order_details
+            })
+
+        return Response({
+            'message': 'All commission payment details retrieved successfully.',
+            'payment_transactions': payment_details
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {'error': f'An error occurred: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

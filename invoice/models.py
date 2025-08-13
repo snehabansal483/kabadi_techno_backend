@@ -66,6 +66,7 @@ class CommissionPaymentTransaction(models.Model):
     payment_screenshot = models.ImageField(upload_to="commission_payments/screenshots/", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     verified = models.BooleanField(default=False)  # Field to track verification status
+    notes = models.TextField(null=True, blank=True)  # Field to store additional notes
 
     def __str__(self):
         return f"Transaction {self.transaction_id} for Commission {self.commission.id}"
