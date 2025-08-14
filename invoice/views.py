@@ -710,6 +710,7 @@ def get_all_payment_details(request):
                 'commission_status': commission.status,
                 'dealer': {
                     'id': dealer.id,
+                    'auth_id': dealer.auth_id.id if dealer.auth_id else None,
                     'kt_id': dealer.kt_id,
                     'name': dealer.auth_id.full_name if dealer.auth_id else '',
                     'email': dealer.auth_id.email if dealer.auth_id else '',

@@ -543,6 +543,7 @@ def get_all_dealers_with_subscriptions(request):
             dealer_info = {
                 'dealer_id': dealer.id,
                 'kt_id': dealer.kt_id,
+                'auth_id': dealer.auth_id.id if dealer.auth_id else None,
                 'dealer_name': dealer.auth_id.full_name if dealer.auth_id.full_name else dealer.auth_id.email,
                 'email': dealer.auth_id.email,
                 'phone_number': dealer.auth_id.phone_number or 'N/A',
