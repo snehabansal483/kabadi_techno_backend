@@ -200,3 +200,28 @@ class order_confirm_serializer(serializers.ModelSerializer):
     class Meta:
         model = OrderProduct
         fields = '__all__'
+
+class UpdateOrderSerializer(serializers.Serializer):
+    order_number = serializers.CharField(max_length=50, required=True)
+    otp = serializers.CharField(max_length=6, required=True)
+    items = serializers.ListField(
+        child=serializers.DictField(
+            child=serializers.CharField()
+        ),
+        required=True
+    )
+    
+    def validate_items(self, value):
+        """
+        Validate that each item has required fields
+        """
+        for item in value:
+            if 'subcategory_name' not in item:
+                raise serializers.ValidationError("Each item must have 'subcategory_name'")
+            if 'quantity' not in item:
+                raise serializers.ValidationError("Each item must have 'quantity'")
+            try:
+                int(item['quantity'])
+            except (ValueError, TypeError):
+                raise serializers.ValidationError("Quantity must be a valid integer")
+        return value

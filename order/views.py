@@ -1,9 +1,12 @@
 import datetime
+import random
+from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework import generics, status, views, permissions 
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from carts.models import Cart_Order, CartItem
+from .models import Order, OrderProduct
 from .serializers import *
 from django.core.exceptions import ObjectDoesNotExist
 ###
@@ -98,13 +101,19 @@ class TakeOrderDetails(APIView):
                     order_number = current_date + 'KT' + str(order_id)
                 
                 Order.order_number = order_number
+                
+                # Generate 6-digit OTP
+                otp = str(random.randint(100000, 999999))
+                Order.otp = otp
+                
                 Order.save()
                 
                 created_orders.append({
                     'order_id': Order.id,
                     'order_number': order_number,
                     'dealer_id': dealer_id,
-                    'items_count': len(dealer_items)
+                    'items_count': len(dealer_items),
+                    'otp': otp
                 })
             
             return Response({
@@ -122,6 +131,170 @@ class UpdateOrderDetails(APIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response({"msg": "Order updated successfully", "order_id": id})
+
+class UpdateOrder(APIView):
+    """
+    OTP-based order update method to update item quantities
+    """
+    serializer_class = UpdateOrderSerializer
+    
+    def post(self, request):
+        try:
+            with transaction.atomic():
+                # Validate request data
+                serializer = UpdateOrderSerializer(data=request.data)
+                if not serializer.is_valid():
+                    return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+                
+                validated_data = serializer.validated_data
+                order_number = validated_data['order_number']
+                otp = validated_data['otp']
+                items_to_update = validated_data['items']
+                
+                # Find the order with the provided order number and OTP
+                try:
+                    order = Order.objects.get(order_number=order_number, otp=otp)
+                except Order.DoesNotExist:
+                    return Response({"error": "Invalid order number or OTP"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Allow updates even for processed orders (removed is_ordered check)
+                
+                updated_items = []
+                
+                # Update quantities for each item
+                for item_data in items_to_update:
+                    subcategory_name = item_data.get('subcategory_name')
+                    new_quantity = int(item_data.get('quantity'))
+                    
+                    try:
+                        # First, try to find active cart items (for unprocessed orders)
+                        cart_items = CartItem.objects.filter(
+                            customer_id=order.customer_id,
+                            dealer_id=order.dealer_id,
+                            subcategory_name=subcategory_name,
+                            is_active=True
+                        )
+                        
+                        if cart_items.exists():
+                            # Update active cart item
+                            cart_item = cart_items.first()
+                            old_quantity = cart_item.quantity
+                            cart_item.quantity = new_quantity
+                            cart_item.save()
+                            
+                            updated_items.append({
+                                'subcategory_name': subcategory_name,
+                                'old_quantity': old_quantity,
+                                'new_quantity': new_quantity,
+                                'updated_in': 'cart_item'
+                            })
+                        else:
+                            # If no active cart items, try to update OrderProduct (for processed orders)
+                            order_products = OrderProduct.objects.select_for_update().filter(
+                                order=order,
+                                subcategory_name=subcategory_name
+                            )
+                            
+                            if order_products.exists():
+                                order_product = order_products.first()
+                                old_quantity = order_product.quantity
+                                order_product.quantity = new_quantity
+                                order_product.status = 'Completed'  # Update OrderProduct status
+                                order_product.save()  # This will trigger the custom save method to recalculate totals
+                                
+                                # Refresh from database to ensure we have the latest values
+                                order_product.refresh_from_db()
+                                
+                                updated_items.append({
+                                    'subcategory_name': subcategory_name,
+                                    'old_quantity': old_quantity,
+                                    'new_quantity': order_product.quantity,  # Use the refreshed value
+                                    'updated_in': 'order_product'
+                                })
+                            else:
+                                # If neither cart item nor order product found
+                                updated_items.append({
+                                    'subcategory_name': subcategory_name,
+                                    'error': 'Item not found in cart or order'
+                                })
+                            
+                    except Exception as e:
+                        return Response({"error": f"Error updating item {subcategory_name}: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+                if not updated_items:
+                    return Response({"error": "No valid items found to update"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Recalculate order total after updating quantities
+                order_products = OrderProduct.objects.filter(order=order)
+                new_order_total = sum(op.total_amount for op in order_products)
+                order.order_total = new_order_total
+                
+                # Change order status to "Completed" after successful OTP verification
+                order.status = 'Completed'
+                
+                # Clear the OTP after successful update (one-time use only)
+                order.otp = None
+                order.save()
+                
+                # Trigger commission recalculation for the dealer if order status allows commission
+                if order.dealer_id and order.status in ['Confirmed', 'Completed']:
+                    try:
+                        # Import here to avoid circular imports
+                        from accounts.models import DealerProfile
+                        from invoice.views import DealerCommissionViewSet
+                        
+                        dealer = DealerProfile.objects.get(id=order.dealer_id)
+                        commission_viewset = DealerCommissionViewSet()
+                        # First recalculate existing commissions to reflect updated order totals
+                        commission_viewset._recalculate_existing_commissions(dealer)
+                        # Then run auto-update to include any new orders
+                        commission_viewset._auto_update_commission(dealer)
+                    except Exception as commission_error:
+                        # Log the error but don't fail the order update
+                        print(f"Commission recalculation failed: {commission_error}")
+                
+                return Response({
+                    "msg": "Order updated successfully",
+                    "order_number": order_number,
+                    "updated_items": updated_items,
+                    "order_status": "Completed",
+                    "new_order_total": new_order_total,
+                    "note": "OTP has been invalidated. Use regenerate-otp endpoint for future updates."
+                }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RegenerateOTP(APIView):
+    """
+    Regenerate OTP for an existing order
+    """
+    def post(self, request):
+        try:
+            order_number = request.data.get('order_number')
+            customer_id = request.data.get('customer_id')
+            
+            if not order_number or not customer_id:
+                return Response({"error": "Order number and customer ID are required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                order = Order.objects.get(order_number=order_number, customer_id=customer_id)
+            except Order.DoesNotExist:
+                return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Generate new 6-digit OTP
+            new_otp = str(random.randint(100000, 999999))
+            order.otp = new_otp
+            order.save()
+            
+            return Response({
+                "msg": "OTP regenerated successfully",
+                "order_number": order_number,
+                "otp": new_otp
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class DeleteOrderDetails(APIView):
     def delete(self, request, id):
@@ -204,6 +377,7 @@ class ViewOrder(APIView):
             ordeR = Order.objects.get(id=order, customer_id=customer_id)
 
             # Fetch order products related to this order and exclude cancelled ones
+            # Use select_for_update to ensure we get the latest data
             order_products = OrderProduct.objects.filter(
                 order=ordeR,
                 is_ordered=True

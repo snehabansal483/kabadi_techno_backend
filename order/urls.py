@@ -1,10 +1,12 @@
 from django.urls import path
 from .views import *
-from .views import TakeOrderDetails, UpdateOrderDetails, DeleteOrderDetails
+from .views import TakeOrderDetails, UpdateOrderDetails, DeleteOrderDetails, UpdateOrder, RegenerateOTP
 
 urlpatterns = [
     path('take-order-details/', TakeOrderDetails.as_view(), name="take-order-details"),
     path('take-order-details/update/<int:id>/', UpdateOrderDetails.as_view(), name="update-order-details"),
+    path('update-order/', UpdateOrder.as_view(), name="update-order"),
+    path('regenerate-otp/', RegenerateOTP.as_view(), name="regenerate-otp"),
     path('take-order-details/delete/<int:id>/', DeleteOrderDetails.as_view(), name="delete-order-details"),
     path('order-product-initialization/', OrderProductInitialization.as_view(), name="order-product-initialization"),
     path('view-order-details/<int:customer_id>/<int:order>/', ViewOrder.as_view(), name="view-order-details"),

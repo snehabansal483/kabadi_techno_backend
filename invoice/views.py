@@ -225,6 +225,9 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
             )
         
         # Auto-update commission calculation before returning summary
+        # First recalculate existing commissions to reflect any updated order totals
+        self._recalculate_existing_commissions(dealer)
+        # Then run auto-update to include any new orders
         self._auto_update_commission(dealer)
         
         commissions = DealerCommission.objects.filter(dealer=dealer).order_by('-calculation_date')
@@ -498,6 +501,47 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
                 status='Unpaid'
             )
 
+    def _recalculate_existing_commissions(self, dealer):
+        """
+        Recalculate existing UNPAID commissions to reflect updated order totals
+        """
+        unpaid_commissions = DealerCommission.objects.filter(dealer=dealer, status='Unpaid')
+        
+        for commission in unpaid_commissions:
+            # Recalculate total for this commission based on current order totals
+            # Only include orders with commission-eligible status
+            orders = Order.objects.filter(
+                order_number__in=commission.order_numbers,
+                status__in=['Confirmed', 'Completed']
+            )
+            total_amount = Decimal('0.00')
+            
+            for order in orders:
+                # Force refresh from database and use order.order_total if available
+                order.refresh_from_db()
+                if order.order_total:
+                    order_total = Decimal(str(order.order_total))
+                else:
+                    # Calculate from order products if order_total is not set
+                    order_products = OrderProduct.objects.filter(order=order)
+                    order_total = Decimal('0.00')
+                    for product in order_products:
+                        product.refresh_from_db()  # Ensure fresh data
+                        if product.total_amount:
+                            order_total += Decimal(str(product.total_amount))
+                        else:
+                            # Fallback calculation: quantity * price
+                            product_total = Decimal(str(product.quantity)) * Decimal(str(product.price))
+                            order_total += product_total
+                
+                total_amount += order_total
+            
+            # Update commission with recalculated totals
+            if total_amount > 0:
+                commission.total_order_amount = total_amount
+                commission.commission_amount = total_amount * Decimal('0.01')
+                commission.save()
+
     def _generate_next_month_commission(self, dealer):
         """
         Generate next month's commission for a dealer after they pay current commission
@@ -689,18 +733,60 @@ def get_all_payment_details(request):
         for transaction in payment_transactions:
             commission = transaction.commission
             dealer = commission.dealer
-            orders = Order.objects.filter(order_number__in=commission.order_numbers)
-            order_details = [
-                {
+            
+            # Get all commissions for this dealer to organize orders by commission periods
+            all_dealer_commissions = DealerCommission.objects.filter(dealer=dealer).order_by('-calculation_date')
+            
+            # Organize orders by commission periods
+            commission_periods = []
+            all_commission_order_numbers = set()
+            
+            for dealer_commission in all_dealer_commissions:
+                # Get orders for this specific commission period
+                commission_orders = Order.objects.filter(order_number__in=dealer_commission.order_numbers)
+                commission_order_details = []
+                
+                for order in commission_orders:
+                    commission_order_details.append({
+                        'order_number': order.order_number,
+                        'status': order.status,
+                        'total_amount': order.order_total,
+                        'created_at': order.created_at,
+                        'included_in_commission': True
+                    })
+                    all_commission_order_numbers.add(order.order_number)
+                
+                # Sort orders by creation date (newest first)
+                commission_order_details.sort(key=lambda x: x['created_at'], reverse=True)
+                
+                commission_periods.append({
+                    'commission_id': dealer_commission.id,
+                    'commission_status': dealer_commission.status,
+                    'calculation_date': dealer_commission.calculation_date,
+                    'payment_due_date': dealer_commission.payment_due_date,
+                    'commission_amount': str(dealer_commission.commission_amount),
+                    'total_order_amount': str(dealer_commission.total_order_amount),
+                    'orders': commission_order_details
+                })
+            
+            # Get all other orders for this dealer that are NOT in any commission (including Cancelled and Cancelled by Customer)
+            non_commission_orders = Order.objects.filter(dealer_id=dealer.id).exclude(order_number__in=all_commission_order_numbers)
+            non_commission_order_details = []
+            
+            for order in non_commission_orders:
+                non_commission_order_details.append({
                     'order_number': order.order_number,
                     'status': order.status,
                     'total_amount': order.order_total,
-                    'created_at': order.created_at
-                } for order in orders
-            ]
+                    'created_at': order.created_at,
+                    'included_in_commission': False
+                })
+            
+            # Sort non-commission orders by creation date (newest first)
+            non_commission_order_details.sort(key=lambda x: x['created_at'], reverse=True)
 
             payment_details.append({
-                'id':transaction.id,
+                'id': transaction.id,
                 'transaction_id': transaction.transaction_id,
                 'amount': str(transaction.amount),
                 'payment_method': transaction.payment_method,
@@ -716,7 +802,8 @@ def get_all_payment_details(request):
                     'email': dealer.auth_id.email if dealer.auth_id else '',
                     'is_active': dealer.auth_id.is_active if dealer.auth_id else False
                 },
-                'order_details': order_details
+                'commission_periods': commission_periods,
+                'non_commission_orders': non_commission_order_details
             })
 
         return Response({

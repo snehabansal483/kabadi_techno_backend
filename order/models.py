@@ -41,6 +41,7 @@ class Order(models.Model):
     ip = models.CharField(blank=True, max_length=20)
     is_ordered = models.BooleanField(default=False)
     cart_order_id = models.IntegerField(null=True, blank=True)
+    otp = models.CharField(max_length=6, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='Pending') 
@@ -91,7 +92,8 @@ class OrderProduct(models.Model):
         return self.subcategory_name
 
     def save(self, *args, **kwargs):
-        if self.cart_item:
+        # Only populate from cart_item if it exists and we don't have the data already
+        if self.cart_item and not self.customer_id:
             self.customer_id = self.cart_item.customer_id
             self.dealer_id = self.cart_item.dealer_id
             self.subcategory_name = self.cart_item.subcategory_name
@@ -105,11 +107,11 @@ class OrderProduct(models.Model):
         if self.order:
             self.order_number = self.order.order_number
 
-        # Calculate total_amount for this order product
+        # Always recalculate total_amount when saving (regardless of whether it's from cart_item or direct update)
         if self.quantity and self.price:
             subtotal = self.quantity * self.price
-            tax_amount = subtotal * (self.GST / 100)
-            percentage_amount = subtotal * (self.percentage / 100)
+            tax_amount = subtotal * (self.GST / 100) if self.GST else 0
+            percentage_amount = subtotal * (self.percentage / 100) if self.percentage else 0
             self.total_amount = subtotal + tax_amount + percentage_amount
         
         # Calculate total_cart_items (number of items in this order product)
