@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visiting Card with Dynamic QR and Dealer Info</title>
+<style>
+    body {
+        font-family: 'Arial', sans-serif;
+        background: #f5f5f5;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: clamp(10px, 3vw, 20px);
+        box-sizing: border-box;
+    }
+    
+    /* Responsive container */
+    .card-container {
+        width: 100%;
+        max-width: min(90vw, 600px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0;
+    }
+    
+    .card {
+        position: relative;
+        width: 100%;
+        height: 600px;
+        aspect-ratio: 16/10; /* Better aspect ratio for all devices */
+        border-radius: clamp(8px, 2vw, 15px);
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        margin-bottom: clamp(15px, 3vw, 20px);
+        background: #fff;
+    }
+    
+    .card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    
+    /* QR Code positioning - responsive */
+    .qr-code {
+        position: absolute;
+        bottom: clamp(15%, 20vw, 23%);
+        left: clamp(5%, 15vw, 23%);
+        width: clamp(12%, 15vw, 15%);
+        height: auto;
+        aspect-ratio: 1;
+        background: white;
+        border-radius: clamp(4px, 1vw, 8px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: clamp(2px, 0.5vw, 5px);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        border: 1px solid rgba(139, 195, 74, 0.3);
+    }
+    
+    .qr-code img {
+        width: 100%;
+        height: 100%;
+        border-radius: clamp(2px, 0.5vw, 4px);
+        object-fit: contain;
+    }
+    
+    /* Dealer info positioning - responsive */
+    .dealer-info {
+        position: absolute;
+        bottom: clamp(18%, 22vw, 26.5%);
+        right: clamp(8%, 15vw, 20%);
+        color: white;
+        font-weight: bold;
+        text-align: right;
+        line-height: 1.1;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        max-width: clamp(35%, 40vw, 45%);
+        z-index: 2;
+    }
+    
+    .dealer-name {
+        font-size: clamp(0.8rem, 3vw, 1.4rem);
+        margin-bottom: clamp(0.2rem, 0.5vw, 0.4rem);
+        letter-spacing: clamp(0.2px, 0.5vw, 0.8px);
+        font-weight: 300;
+        word-break: break-word;
+        hyphens: auto;
+    }
+    
+    .dealer-ktid {
+        font-size: clamp(0.7rem, 2.5vw, 1.15rem);
+        font-weight: 500;
+        opacity: 0.95;
+        letter-spacing: clamp(0.1px, 0.3vw, 0.5px);
+        word-break: break-all;
+    }
+    
+    /* Info panel - responsive */
+    .info-panel {
+        background: white;
+        padding: clamp(12px, 3vw, 20px);
+        border-radius: clamp(6px, 2vw, 10px);
+        box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        margin-top: clamp(15px, 3vw, 20px);
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
+    }
+    
+    .info-panel h3 {
+        color: #2E7D32;
+        margin: 0 0 clamp(8px, 2vw, 10px) 0;
+        font-size: clamp(1rem, 3vw, 1.3rem);
+        font-weight: 600;
+    }
+    
+    .info-panel p {
+        color: #666;
+        margin: clamp(3px, 1vw, 5px) 0;
+        font-size: clamp(0.8rem, 2.2vw, 1rem);
+        line-height: 1.4;
+    }
+    
+    /* Device-specific optimizations */
+    
+    /* Large tablets and small desktops */
+    @media (max-width: 1024px) and (min-width: 769px) {
+        .card-container {
+            max-width: 85vw;
+        }
+        .card{
+            height:850px;
+        }
+        
+        .qr-code {
+            bottom: 20%;
+            left: 23%;
+            width: 14%;
+        }
+        
+        .dealer-info {
+            bottom: 23%;
+            right: 28%;
+            max-width: 42%;
+        }
+    }
+    
+    /* Tablets */
+    @media (max-width: 768px) and (min-width: 481px) {
+        body {
+            padding: clamp(8px, 2vw, 15px);
+        }
+        
+        .card-container {
+            max-width: 95vw;
+        }
+        
+        .card {
+            aspect-ratio: 16/11;
+            height:730px;
+        }
+        
+        .qr-code {
+            bottom: 20%;
+            left: 20%;
+            width: 16%;
+        }
+        
+        .dealer-info {
+            bottom: 23%;
+            right: 22%;
+            max-width: 45%;
+        }
+    }
+    
+    /* Mobile phones */
+    @media (max-width: 480px) {
+        body {
+            padding: clamp(8px, 2vw, 12px);
+        }
+        
+        .card-container {
+            max-width: 98vw;
+        }
+        
+        .card {
+            aspect-ratio: 16/12;
+            border-radius: clamp(6px, 3vw, 12px);
+        }
+        
+        .qr-code {
+            bottom: 28%;
+            left: 15%;
+            width: 18%;
+            border-radius: clamp(3px, 1.5vw, 6px);
+            padding: clamp(1px, 0.8vw, 3px);
+        }
+        
+        .dealer-info {
+            bottom: 31%;
+            right: 15%;
+            max-width: 50%;
+        }
+        
+        .dealer-name {
+            font-size: clamp(0.75rem, 4vw, 1.1rem);
+        }
+        
+        .dealer-ktid {
+            font-size: clamp(0.65rem, 3.5vw, 0.95rem);
+        }
+        
+        .info-panel {
+            margin-top: clamp(12px, 4vw, 18px);
+            padding: clamp(10px, 4vw, 16px);
+        }
+        
+        .info-panel h3 {
+            font-size: clamp(0.9rem, 4vw, 1.1rem);
+        }
+        
+        .info-panel p {
+            font-size: clamp(0.75rem, 3vw, 0.9rem);
+        }
+    }
+    
+    /* Very small devices */
+    @media (max-width: 360px) {
+        .card {
+            aspect-ratio: 16/13;
+        }
+        
+        .qr-code {
+            bottom: 25%;
+            left: 6%;
+            width: 20%;
+        }
+        
+        .dealer-info {
+            bottom: 30%;
+            right: 4%;
+            max-width: 55%;
+        }
+        
+        .dealer-name {
+            font-size: clamp(0.7rem, 4.5vw, 1rem);
+        }
+        
+        .dealer-ktid {
+            font-size: clamp(0.6rem, 4vw, 0.85rem);
+        }
+    }
+    
+    /* Landscape orientation on mobile */
+    @media (max-height: 500px) and (orientation: landscape) {
+        body {
+            padding: clamp(5px, 1vh, 10px);
+        }
+        
+        .card {
+            aspect-ratio: 20/12;
+        }
+        
+        .qr-code {
+            bottom: 20%;
+            left: 15%;
+            width: 12%;
+        }
+        
+        .dealer-info {
+            bottom: 24%;
+            right: 12%;
+            max-width: 35%;
+        }
+        
+        .info-panel {
+            margin-top: clamp(8px, 2vh, 12px);
+        }
+    }
+    
+    /* Print styles */
+    @media print {
+        body {
+            background: white;
+            padding: 0;
+        }
+        
+        .info-panel {
+            display: none !important;
+        }
+        
+        .card {
+            box-shadow: none;
+            border: 1px solid #ddd;
+        }
+    }
+</style>
+</head>
+<body>
+
+<div class="card-container">
+    <div class="card" id="visitingCard">
+        <!-- Card background image -->
+        <img src="/media/accounts/dealer/visiting_card.png" alt="Visiting Card">
+
+        <!-- QR Code container -->
+        <div class="qr-code" id="qrCode"></div>
+
+        <!-- Dealer info with structured layout -->
+        <div class="dealer-info" id="dealerInfo">
+            <div class="dealer-name" id="dealerName"></div>
+            <div class="dealer-ktid" id="dealerKtid"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Dynamic QR Code and Dealer Info -->
+<script>
+    // Use Django template variables for dynamic content
+    const dealerName = "{{ dealer_name|escapejs }}";
+    const ktid = "{{ marketplace.kt_id|escapejs }}";
+    
+    // Update dealer info with separate elements
+    document.getElementById("dealerName").textContent = dealerName;
+    document.getElementById("dealerKtid").textContent = ktid;
+</script>
+
+<!-- QR Code Display Logic -->
+{% if marketplace.qrCode %}
+    <script>
+        // Use existing QR code image from marketplace
+        const qrImg = document.createElement("img");
+        qrImg.src = "{{ marketplace.qrCode.url }}";
+        qrImg.alt = "QR Code for " + dealerName;
+        qrImg.style.objectFit = "contain";
+        document.getElementById("qrCode").appendChild(qrImg);
+    </script>
+{% elif marketplace.url %}
+    <script>
+        // Fallback to online QR code generator if qrCode field is empty
+        const qrImg = document.createElement("img");
+        qrImg.src = "https://api.qrserver.com/v1/create-qr-code/?data={{ marketplace.url|urlencode }}&size=200x200";
+        qrImg.alt = "QR Code for " + dealerName;
+        qrImg.style.objectFit = "contain";
+        document.getElementById("qrCode").appendChild(qrImg);
+    </script>
+{% else %}
+    <script>
+        // No QR code available
+        document.getElementById("qrCode").innerHTML = '<div style="text-align: center; color: #666; font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">📱<br>QR Code<br>Not Available</div>';
+    </script>
+{% endif %}
+
+</body>
+</html>

@@ -126,6 +126,7 @@ class CreateMarketplace(APIView):
                     'qr_code_path': qr_code_image_path,
                     'frontend_url': qr_url,
                     'qr_display_url': f"{request.build_absolute_uri('/').rstrip('/')}/marketplace/qr-display/{marketplace.kt_id}/",
+                    'visiting_card_url': f"{request.build_absolute_uri('/').rstrip('/')}/marketplace/visiting-card/{marketplace.kt_id}/",
                     'subscription_expires': current_subscription.end_date
                 }, status=status.HTTP_202_ACCEPTED)
             
@@ -176,6 +177,7 @@ class GetMarketplace(APIView):
         frontend_url = f"{current_site_frontend}/marketplace/{marketplace.kt_id}"
         response_data['frontend_url'] = frontend_url
         response_data['qr_display_url'] = f"{request.build_absolute_uri('/').rstrip('/')}/marketplace/qr-display/{marketplace.kt_id}/"
+        response_data['visiting_card_url'] = f"{request.build_absolute_uri('/').rstrip('/')}/marketplace/visiting-card/{marketplace.kt_id}/"
 
         return Response(response_data)
 
@@ -254,6 +256,39 @@ def marketplace_qr_display(request, kt_id):
     }
     
     return render(request, 'marketplace/qr_display.html', context)
+
+
+def marketplace_visiting_card(request, kt_id):
+    """Display visiting card with dynamic QR code and dealer information"""
+    
+    # Get marketplace
+    marketplace = get_object_or_404(Marketplace, kt_id=kt_id)
+    
+    # Get dealer information
+    dealer = marketplace.dealer_id
+    dealer_name = dealer.auth_id.full_name if dealer.auth_id else dealer.kt_id
+    
+    # Get subscription information
+    from payment_gateway.models import DealerSubscription
+    subscription = DealerSubscription.objects.filter(
+        dealer=dealer,
+        status='active'
+    ).first()
+    
+    # Calculate days remaining
+    days_remaining = 0
+    if subscription and subscription.is_active:
+        days_remaining = subscription.days_remaining
+    
+    context = {
+        'marketplace': marketplace,
+        'dealer_name': dealer_name,
+        'subscription': subscription,
+        'days_remaining': days_remaining,
+        'current_date': timezone.now(),
+    }
+    
+    return render(request, 'marketplace/visiting_card.html', context)
 
 
 class DeleteMarketplace(APIView):

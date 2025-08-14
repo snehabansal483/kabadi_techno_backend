@@ -10,5 +10,6 @@ urlpatterns = [
     path('delete-marketplace/<kt_id>/', DeleteMarketplace.as_view(), name='delete-marketplace'),
     path('deactivate-marketplace/<kt_id>/', SoftDeleteMarketplace.as_view(), name='deactivate-marketplace'),
     path('qr-display/<kt_id>/', marketplace_qr_display, name='marketplace-qr-display'),
+    path('visiting-card/<kt_id>/', marketplace_visiting_card, name='marketplace-visiting-card'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
