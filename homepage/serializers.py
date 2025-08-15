@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Contact, Donation, WasteDonation
+from .models import Contact, WasteDonation
 
 class ContactSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,10 +11,10 @@ class TakeAllContactSerializer(serializers.ModelSerializer):
         model = Contact
         exclude = ['profile_type']
 
-class DonationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Donation
-        fields = '__all__'
+# class DonationSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Donation
+#         fields = '__all__'
 
 class WasteDonationSerializer(serializers.ModelSerializer):
     class Meta:

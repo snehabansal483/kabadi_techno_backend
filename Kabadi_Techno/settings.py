@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'corsheaders',  
     'rest_framework_simplejwt.token_blacklist',
+    'whitenoise.runserver_nostatic',
     #include your apps here
     'Category',
     'dealer',
@@ -72,6 +73,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', 
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -183,8 +185,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-RAZORPAY_KEY_ID = "rzp_test_nHvz9brffA3iVv"
-RAZORPAY_KEY_SECRET = "skeXn0MK2T65fQWHWahD4Av5"
+
 
 
 # Internationalization
@@ -203,6 +204,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
