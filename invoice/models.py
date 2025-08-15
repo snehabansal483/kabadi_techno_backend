@@ -32,14 +32,18 @@ class DealerCommission(models.Model):
         return f"Commission for {self.dealer.kt_id} on {self.calculation_date}"
     
     def save(self, *args, **kwargs):
-        # Auto-set payment due date if not provided (30 days from calculation date)
+        # Auto-set payment due date if not provided (last day of the calculation month)
         if not self.payment_due_date:
+            from calendar import monthrange
             if isinstance(self.calculation_date, str):
                 from datetime import datetime
                 calc_date = datetime.strptime(self.calculation_date, '%Y-%m-%d').date()
             else:
                 calc_date = self.calculation_date
-            self.payment_due_date = calc_date + timedelta(days=30)
+            
+            # Get last day of the calculation month
+            last_day = monthrange(calc_date.year, calc_date.month)[1]
+            self.payment_due_date = calc_date.replace(day=last_day)
         super().save(*args, **kwargs)
     
     @property
