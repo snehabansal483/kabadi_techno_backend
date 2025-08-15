@@ -164,13 +164,9 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def mark_as_paid(self, request, pk=None):
         """
-        Mark a commission as paid and generate next month's commission if applicable
+        Mark a commission as paid and generate next month's commission
         """
         commission = self.get_object()
-        
-        # Check if payment is within 30 days of due date
-        days_until_due = commission.days_until_due
-        payment_within_30_days = days_until_due >= 0  # Not overdue
         
         # Mark current commission as paid
         commission.status = 'Paid'
@@ -181,20 +177,25 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
             'message': f'Commission for dealer {commission.dealer.kt_id} marked as paid'
         }
         
-        # If paid within 30 days, generate next month's commission
-        if payment_within_30_days:
-            next_commission = self._generate_next_month_commission(commission.dealer)
-            if next_commission:
-                response_data['next_commission_generated'] = True
-                response_data['next_commission_id'] = next_commission.id
-                response_data['next_commission_amount'] = str(next_commission.commission_amount)
-                response_data['message'] += f'. Next month commission generated with amount {next_commission.commission_amount}'
-            else:
-                response_data['next_commission_generated'] = False
-                response_data['message'] += '. No new orders found for next month commission'
+        # Always generate next month's commission when payment is made
+        next_commission = self._generate_next_month_commission(commission.dealer)
+        if next_commission:
+            response_data['next_commission_generated'] = True
+            response_data['next_commission_id'] = next_commission.id
+            response_data['next_commission_amount'] = str(next_commission.commission_amount)
+            response_data['message'] += f'. Next month commission generated with amount {next_commission.commission_amount}'
         else:
             response_data['next_commission_generated'] = False
-            response_data['message'] += '. Payment was overdue, next commission not auto-generated'
+            response_data['message'] += '. No new orders found for next month commission'
+        
+        # Check if payment was late for informational purposes only
+        days_until_due = commission.days_until_due
+        if days_until_due < 0:
+            response_data['payment_status'] = 'late'
+            response_data['days_overdue'] = abs(days_until_due)
+            response_data['message'] += f' (Payment was {abs(days_until_due)} days overdue)'
+        else:
+            response_data['payment_status'] = 'on_time'
         
         return Response(response_data)
     
@@ -538,6 +539,7 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
                             if product.total_amount:
                                 order_total += Decimal(str(product.total_amount))
                             else:
+                                # Fallback calculation: quantity * price
                                 product_total = Decimal(str(product.quantity)) * Decimal(str(product.price))
                                 order_total += product_total
                     total_amount += order_total
