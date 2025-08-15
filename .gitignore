@@ -4,6 +4,7 @@ env/
 # Ignore environment variable files
 .env
 .env.*
+.{env_name}
 
 # Byte-compiled Python files
 __pycache__/
