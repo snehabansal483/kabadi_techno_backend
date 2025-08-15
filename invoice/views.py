@@ -1025,3 +1025,108 @@ def get_all_payment_details(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUserCustom])
+def get_all_dealers_with_orders(request):
+    """Admin endpoint to retrieve all dealers with their order details"""
+    try:
+        # Check if specific dealer is requested
+        dealer_id = request.query_params.get('dealer_id')
+        dealer_kt_id = request.query_params.get('kt_id')
+        
+        # Get dealers based on filters
+        if dealer_id:
+            try:
+                dealers = DealerProfile.objects.select_related('auth_id').filter(id=dealer_id)
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid dealer_id format'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif dealer_kt_id:
+            dealers = DealerProfile.objects.select_related('auth_id').filter(kt_id=dealer_kt_id)
+        else:
+            dealers = DealerProfile.objects.select_related('auth_id').all()
+        
+        if not dealers.exists():
+            return Response(
+                {'error': 'No dealers found with the specified criteria'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        dealers_data = []
+
+        for dealer in dealers:
+            # Get all orders for this dealer
+            all_orders = Order.objects.filter(dealer_id=dealer.id).order_by('-created_at')
+            order_details = []
+            
+            # Calculate order statistics
+            total_orders = all_orders.count()
+            confirmed_orders = all_orders.filter(status='Confirmed').count()
+            completed_orders = all_orders.filter(status='Completed').count()
+            cancelled_orders = all_orders.filter(status__in=['Cancelled', 'Cancelled by Customer']).count()
+            pending_orders = all_orders.filter(status='Pending').count()
+            
+            # Calculate total order amounts
+            total_order_value = 0
+            confirmed_completed_value = 0
+            
+            for order in all_orders:
+                order_data = {
+                    'order_number': order.order_number,
+                    'status': order.status,
+                    'total_amount': order.order_total,
+                    'created_at': order.created_at,
+                    'updated_at': order.updated_at,
+                    'is_ordered': order.is_ordered,
+                }
+                
+                # Add order value to totals
+                if order.order_total:
+                    total_order_value += float(order.order_total)
+                    if order.status in ['Confirmed', 'Completed']:
+                        confirmed_completed_value += float(order.order_total)
+                
+                order_details.append(order_data)
+            
+            # Dealer summary information
+            dealer_info = {
+                'id': dealer.id,
+                'auth_id': dealer.auth_id.id if dealer.auth_id else None,
+                'kt_id': dealer.kt_id,
+                'name': dealer.auth_id.full_name if dealer.auth_id else '',
+                'email': dealer.auth_id.email if dealer.auth_id else '',
+                'phone': dealer.auth_id.phone_number if dealer.auth_id else '',
+                'is_active': dealer.auth_id.is_active if dealer.auth_id else False,
+                'date_joined': dealer.auth_id.date_joined if dealer.auth_id else None,
+                'order_statistics': {
+                    'total_orders': total_orders,
+                    'confirmed_orders': confirmed_orders,
+                    'completed_orders': completed_orders,
+                    'cancelled_orders': cancelled_orders,
+                    'pending_orders': pending_orders,
+                    'total_order_value': round(total_order_value, 2),
+                    'confirmed_completed_value': round(confirmed_completed_value, 2)
+                },
+                'orders': order_details
+            }
+            
+            dealers_data.append(dealer_info)
+
+        # Sort dealers by total order value (highest first) if getting all dealers
+        if not dealer_id and not dealer_kt_id:
+            dealers_data.sort(key=lambda x: x['order_statistics']['total_order_value'], reverse=True)
+
+        return Response({
+            'message': 'Dealers with order details retrieved successfully.',
+            'total_dealers': len(dealers_data),
+            'dealers': dealers_data
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {'error': f'An error occurred: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
