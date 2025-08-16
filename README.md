@@ -4108,7 +4108,6 @@ Let's look at the "machinery" behind the CVM Management system.
 
 Here’s a simplified flow of how CVMs are managed from registration to unloading:
 
-```mermaid
 sequenceDiagram
     participant Admin
     participant CVM Machine
