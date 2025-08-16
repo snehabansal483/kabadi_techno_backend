@@ -259,7 +259,7 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
         f"cu=INR"
     )
         
-        # Include payment transaction details if available
+        # Include payment transaction details and order details if available
         commissions_data = []
         for commission in commissions:
             payment_transaction = CommissionPaymentTransaction.objects.filter(commission=commission).order_by('-created_at').first()
@@ -273,8 +273,51 @@ class DealerCommissionViewSet(viewsets.ModelViewSet):
                 'status': 'pending_verification' if not payment_transaction.verified else 'verified'
             } if payment_transaction else None
 
+            # Get detailed order information for each order in the commission
+            order_details = []
+            for order_number in commission.order_numbers:
+                try:
+                    order = Order.objects.get(order_number=order_number)
+                    # Only include orders with status 'Confirmed' or 'Completed'
+                    if order.status in ['Confirmed', 'Completed']:
+                        # Get order products for this order with status 'Accepted' or 'Completed'
+                        order_products = OrderProduct.objects.filter(
+                            order=order,
+                            status__in=['Accepted', 'Completed']
+                        )
+                        
+                        items_detail = []
+                        order_total = 0
+                        for product in order_products:
+                            item_total = product.quantity * product.price
+                            order_total += item_total
+                            items_detail.append({
+                                'subcategory_name': product.subcategory_name,
+                                'quantity': product.quantity,
+                                'unit': product.unit,
+                                'price': product.price,
+                                'total': item_total,
+                                'status': product.status
+                            })
+                        
+                        # Calculate commission for this specific order (1% of order total)
+                        order_commission = order_total * 0.01
+                        
+                        order_details.append({
+                            'order_number': order_number,
+                            'date': order.created_at.date(),
+                            'pickup_date': order.pickup_date,
+                            'items': items_detail,
+                            'order_total': order_total,
+                            'commission_amount': order_commission,
+                            'status': order.status
+                        })
+                except Order.DoesNotExist:
+                    continue
+
             commission_data = DealerCommissionSerializer(commission).data
             commission_data['payment_transaction'] = transaction_data
+            commission_data['order_details'] = order_details
             commissions_data.append(commission_data)
 
         return Response({
