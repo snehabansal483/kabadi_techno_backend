@@ -17,6 +17,10 @@ urlpatterns = [
     path('admin-user-list/', AdminUserListAPIView.as_view(), name='admin_user_list'),
     path('address/', AddressAPIView.as_view(), name='address'),
     path('address/<int:id>/', AddressAPIView.as_view(), name='address'),
+    
+    # OTP APIs
+    path('send-otp/', SendOTPAPIView.as_view(), name='send_otp'),
+    path('verify-otp/', VerifyOTPAPIView.as_view(), name='verify_otp'),
 
    
     #####-----------------CUSTOMER------------------######

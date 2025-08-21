@@ -20,6 +20,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
 
 User = get_user_model()
@@ -668,6 +669,140 @@ class AdminUserListAPIView(APIView):
                 "users": user_data
             }, status=status.HTTP_200_OK)
             
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class SendOTPAPIView(APIView):
+    """API endpoint to send OTP to email"""
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        try:
+            serializer = SendOTPSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {"error": "Invalid data", "details": serializer.errors}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            email = serializer.validated_data['email']
+            
+            # Generate OTP
+            otp_code = EmailOTP.generate_otp()
+            
+            # Delete any existing OTPs for this email
+            EmailOTP.objects.filter(email=email).delete()
+            
+            # Create new OTP record
+            otp_instance = EmailOTP.objects.create(
+                email=email,
+                otp=otp_code
+            )
+            
+            # Prepare email content
+            email_content = {
+                'email': email,
+                'otp': otp_code,
+                'site': current_site_frontend
+            }
+            
+            # Create a temporary user object for email sending
+            class TempUser:
+                def __init__(self, email):
+                    self.email = email
+            
+            temp_user = TempUser(email)
+            
+            try:
+                # Send OTP email
+                sendanemail(
+                    request, 
+                    user=temp_user, 
+                    content=email_content, 
+                    subject="Your OTP Code",
+                    template='otp_email.html'
+                )
+                
+                return Response({
+                    "message": "OTP sent successfully to your email.",
+                    "email": email
+                }, status=status.HTTP_200_OK)
+                
+            except Exception as e:
+                # Delete the OTP record if email sending fails
+                otp_instance.delete()
+                return Response(
+                    {"error": f"Failed to send email: {str(e)}"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+                
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class VerifyOTPAPIView(APIView):
+    """API endpoint to verify OTP"""
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        try:
+            serializer = VerifyOTPSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {"error": "Invalid data", "details": serializer.errors}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            email = serializer.validated_data['email']
+            otp_code = serializer.validated_data['otp']
+            
+            try:
+                # Get the latest OTP for this email
+                otp_instance = EmailOTP.objects.filter(
+                    email=email, 
+                    is_verified=False
+                ).latest('created_at')
+                
+                # Check if OTP is expired
+                if otp_instance.is_expired():
+                    return Response(
+                        {"error": "OTP has expired. Please request a new one."}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Verify OTP
+                if otp_instance.otp == otp_code:
+                    # Mark OTP as verified
+                    otp_instance.is_verified = True
+                    otp_instance.save()
+                    
+                    # Delete all OTPs for this email to prevent reuse
+                    EmailOTP.objects.filter(email=email).delete()
+                    
+                    return Response({
+                        "message": "OTP verified successfully!",
+                        "email": email,
+                        "status": "verified"
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response(
+                        {"error": "Invalid OTP. Please check and try again."}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                    
+            except EmailOTP.DoesNotExist:
+                return Response(
+                    {"error": "No OTP found for this email or OTP has already been used."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
         except Exception as e:
             return Response(
                 {"error": f"An error occurred: {str(e)}"}, 

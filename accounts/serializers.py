@@ -187,3 +187,28 @@ class ChangePasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError("Old password is incorrect.")
 
         return attrs
+
+
+class SendOTPSerializer(serializers.Serializer):
+    """Serializer for sending OTP to email"""
+    email = serializers.EmailField(required=True)
+    
+    def validate_email(self, value):
+        """Validate email format"""
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        return value
+
+
+class VerifyOTPSerializer(serializers.Serializer):
+    """Serializer for verifying OTP"""
+    email = serializers.EmailField(required=True)
+    otp = serializers.CharField(max_length=6, min_length=6, required=True)
+    
+    def validate_otp(self, value):
+        """Validate OTP format"""
+        if not value.isdigit():
+            raise serializers.ValidationError("OTP must contain only digits.")
+        if len(value) != 6:
+            raise serializers.ValidationError("OTP must be 6 digits long.")
+        return value

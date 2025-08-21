@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Account, Address, CustomerProfile, DealerProfile
+from .models import Account, Address, CustomerProfile, DealerProfile, EmailOTP
 from django.contrib.auth.admin import UserAdmin
 
 
@@ -44,3 +44,17 @@ class DealerProfileAdmin(admin.ModelAdmin):
     list_filter = ('profile_type',)
     search_fields = ('auth_id__email',)
     ordering = ('id',)
+
+
+@admin.register(EmailOTP)
+class EmailOTPAdmin(admin.ModelAdmin):
+    list_display = ('email', 'otp', 'created_at', 'is_verified', 'is_expired_status')
+    list_filter = ('is_verified', 'created_at')
+    search_fields = ('email',)
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at',)
+    
+    def is_expired_status(self, obj):
+        return obj.is_expired()
+    is_expired_status.boolean = True
+    is_expired_status.short_description = 'Is Expired'
